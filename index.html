@@ -6,7 +6,7 @@
     <title>Video & Audio Toolbox (Groq SRT)</title>
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- FFmpeg WASM & Util CDN -->
+    <!-- FFmpeg WASM & Util -->
     <script src="https://unpkg.com/@ffmpeg/ffmpeg@0.12.10/dist/umd/ffmpeg.js"></script>
     <script src="https://unpkg.com/@ffmpeg/util@0.12.1/dist/umd/util.js"></script>
 </head>
@@ -99,7 +99,7 @@
             }
 
             const file = fileInput.files[0];
-            statusDiv.innerText = '🔄 Groq API သို့ ပေးပို့နေပါပြီ (ဖိုင်ဆိုဒ်ကြီးလျှင် အနည်းငယ်စောင့်ပါ)...';
+            statusDiv.innerText = '🔄 Groq API သို့ ပေးပို့နေပါပြီ...';
             resultDiv.classList.add('hidden');
 
             const formData = new FormData();
@@ -159,7 +159,7 @@
             }
 
             const file = fileInput.files[0];
-            statusDiv.innerText = '⏳ FFmpeg ကို စတင်ဖွင့်နေပါပြီ...';
+            statusDiv.innerText = '⏳ FFmpeg ကို စတင်ဖွင့်နေပါပြီ (ခဏစောင့်ပါ)...';
             resultDiv.classList.add('hidden');
 
             try {
@@ -167,17 +167,14 @@
                     const { FFmpeg } = FFmpegWASM;
                     ffmpegInstance = new FFmpeg();
                     
-                    ffmpegInstance.on('log', ({ message }) => {
-                        console.log(message);
-                    });
-
+                    const baseURL = 'https://unpkg.com/@ffmpeg/core@0.12.6/dist/umd';
                     await ffmpegInstance.load({
-                        coreURL: 'https://unpkg.com/@ffmpeg/core@0.12.6/dist/umd/ffmpeg-core.js',
-                        wasmURL: 'https://unpkg.com/@ffmpeg/core@0.12.6/dist/umd/ffmpeg-core.wasm'
+                        coreURL: `${baseURL}/ffmpeg-core.js`,
+                        wasmURL: `${baseURL}/ffmpeg-core.wasm`,
                     });
                 }
 
-                statusDiv.innerText = '📉 ဗီဒီယိုကို ဖိုင်ဆိုဒ်ချုံ့နေပါပြီ (ခဏစောင့်ပေးပါ)...';
+                statusDiv.innerText = '📉 ဗီဒီယိုဖိုင်ဆိုဒ် ချုံ့နေပါပြီ...';
 
                 const inputName = 'input.mp4';
                 const outputName = 'output_compressed.mp4';
