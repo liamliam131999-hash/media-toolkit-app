@@ -4,11 +4,11 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Video & Audio Toolbox (Groq SRT)</title>
-    <!-- Tailwind CSS for styling -->
+    <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- FFmpeg WASM for browser-side video compression -->
-    <script src="https://cdn.jsdelivr.net/npm/@ffmpeg/ffmpeg@0.12.10/dist/umd/ffmpeg.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@ffmpeg/util@0.12.1/dist/umd/util.js"></script>
+    <!-- FFmpeg WASM & Util CDN -->
+    <script src="https://unpkg.com/@ffmpeg/ffmpeg@0.12.10/dist/umd/ffmpeg.js"></script>
+    <script src="https://unpkg.com/@ffmpeg/util@0.12.1/dist/umd/util.js"></script>
 </head>
 <body class="bg-gray-900 text-gray-100 min-h-screen flex flex-col items-center p-4">
     <div class="w-full max-w-2xl bg-gray-800 rounded-2xl shadow-2xl p-6 border border-gray-700">
@@ -99,7 +99,7 @@
             }
 
             const file = fileInput.files[0];
-            statusDiv.innerText = '🔄 Groq API သို့ ပေးပို့နေပါပြီ (ခဏစောင့်ပါ)...';
+            statusDiv.innerText = '🔄 Groq API သို့ ပေးပို့နေပါပြီ (ဖိုင်ဆိုဒ်ကြီးလျှင် အနည်းငယ်စောင့်ပါ)...';
             resultDiv.classList.add('hidden');
 
             const formData = new FormData();
@@ -129,11 +129,7 @@
                         const start = formatTime(seg.start);
                         const end = formatTime(seg.end);
                         const text = seg.text.trim();
-                        srtContent += `${index + 1}
-${start} --> ${end}
-${text}
-
-`;
+                        srtContent += `${index + 1}\n${start} --> ${end}\n${text}\n\n`;
                     });
                 }
 
@@ -150,7 +146,7 @@ ${text}
             }
         }
 
-        let ffmpeg = null;
+        let ffmpegInstance = null;
         async function compressVideo() {
             const fileInput = document.getElementById('compFile');
             const statusDiv = document.getElementById('compStatus');
@@ -163,35 +159,33 @@ ${text}
             }
 
             const file = fileInput.files[0];
-            statusDiv.innerText = '⏳ FFmpeg (WASM) ကို စတင်ဖွင့်နေပါပြီ...';
+            statusDiv.innerText = '⏳ FFmpeg ကို စတင်ဖွင့်နေပါပြီ...';
             resultDiv.classList.add('hidden');
 
             try {
-                if (!ffmpeg) {
+                if (!ffmpegInstance) {
                     const { FFmpeg } = FFmpegWASM;
-                    const { fetchFile } = FFmpegUtil;
-                    ffmpeg = new FFmpeg();
+                    ffmpegInstance = new FFmpeg();
                     
-                    ffmpeg.on('log', ({ message }) => {
+                    ffmpegInstance.on('log', ({ message }) => {
                         console.log(message);
                     });
 
-                    await ffmpeg.load({
+                    await ffmpegInstance.load({
                         coreURL: 'https://unpkg.com/@ffmpeg/core@0.12.6/dist/umd/ffmpeg-core.js',
                         wasmURL: 'https://unpkg.com/@ffmpeg/core@0.12.6/dist/umd/ffmpeg-core.wasm'
                     });
                 }
 
-                statusDiv.innerText = '📉 ဗီဒီယိုကို ချုံ့နေပါပြီ (ဖိုင်ဆိုဒ်အကြီးစားဆိုလျှင် အနည်းငယ် ကြာနိုင်ပါသည်)...';
+                statusDiv.innerText = '📉 ဗီဒီယိုကို ဖိုင်ဆိုဒ်ချုံ့နေပါပြီ (ခဏစောင့်ပေးပါ)...';
 
-                const { fetchFile } = FFmpegUtil;
                 const inputName = 'input.mp4';
                 const outputName = 'output_compressed.mp4';
 
-                await ffmpeg.writeFile(inputName, await fetchFile(file));
-                await ffmpeg.exec(['-i', inputName, '-vcodec', 'libx264', '-crf', crf, outputName]);
+                await ffmpegInstance.writeFile(inputName, await FFmpegWASM.fetchFile(file));
+                await ffmpegInstance.exec(['-i', inputName, '-vcodec', 'libx264', '-crf', crf, outputName]);
 
-                const data = await ffmpeg.readFile(outputName);
+                const data = await ffmpegInstance.readFile(outputName);
                 const blob = new Blob([data.buffer], { type: 'video/mp4' });
                 const url = URL.createObjectURL(blob);
 
