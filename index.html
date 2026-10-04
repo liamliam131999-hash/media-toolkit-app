@@ -1,6 +1,8 @@
 <!DOCTYPE html>
 <html lang="my">
+
 <head>
+
 <meta charset="UTF-8">
 
 <meta
@@ -11,6 +13,10 @@
 <title>Media Toolkit</title>
 
 <style>
+
+/* =========================================================
+   RESET
+========================================================= */
 
 * {
     box-sizing: border-box;
@@ -23,8 +29,11 @@ body {
     padding: 0;
     width: 100%;
     min-height: 100%;
+
     background: #070b14;
+
     color: #ffffff;
+
     font-family:
         -apple-system,
         BlinkMacSystemFont,
@@ -43,103 +52,161 @@ input {
     font-family: inherit;
 }
 
+
+/* =========================================================
+   APP
+========================================================= */
+
 .app {
+
     width: 100%;
+
     min-height: 100vh;
+
     padding: 18px;
+
     position: relative;
+
     overflow: hidden;
 }
 
-/* =========================
-   BACKGROUND
-========================= */
+
+/* =========================================================
+   BACKGROUND ANIMATION
+========================================================= */
 
 .bg-orb {
+
     position: fixed;
+
     border-radius: 50%;
+
     filter: blur(80px);
+
     opacity: .22;
+
     pointer-events: none;
+
     z-index: 0;
 }
 
 .bg-orb.one {
+
     width: 220px;
     height: 220px;
+
     background: #287cff;
+
     top: -80px;
     left: -80px;
-    animation: floatOne 8s ease-in-out infinite;
+
+    animation:
+        floatOne 8s ease-in-out infinite;
 }
 
 .bg-orb.two {
+
     width: 260px;
     height: 260px;
+
     background: #9c42ff;
+
     right: -100px;
+
     top: 35%;
-    animation: floatTwo 10s ease-in-out infinite;
+
+    animation:
+        floatTwo 10s ease-in-out infinite;
 }
 
 .bg-orb.three {
+
     width: 200px;
     height: 200px;
+
     background: #00d4ff;
+
     bottom: -100px;
+
     left: 25%;
-    animation: floatThree 9s ease-in-out infinite;
+
+    animation:
+        floatThree 9s ease-in-out infinite;
 }
 
 @keyframes floatOne {
+
     0%,100% {
-        transform: translate(0,0);
+        transform:
+            translate(0,0);
     }
 
     50% {
-        transform: translate(35px,45px);
+        transform:
+            translate(35px,45px);
     }
 }
 
 @keyframes floatTwo {
+
     0%,100% {
-        transform: translate(0,0);
+        transform:
+            translate(0,0);
     }
 
     50% {
-        transform: translate(-40px,-30px);
+        transform:
+            translate(-40px,-30px);
     }
 }
 
 @keyframes floatThree {
+
     0%,100% {
-        transform: translate(0,0);
+        transform:
+            translate(0,0);
     }
 
     50% {
-        transform: translate(30px,-35px);
+        transform:
+            translate(30px,-35px);
     }
 }
 
-/* =========================
+
+/* =========================================================
    HEADER
-========================= */
+========================================================= */
 
 .header {
+
     position: relative;
+
     z-index: 2;
+
     text-align: center;
-    padding: 8px 0 22px;
+
+    padding:
+        8px
+        0
+        22px;
 }
 
 .logo {
+
     width: 68px;
     height: 68px;
-    margin: 0 auto 12px;
+
+    margin:
+        0 auto
+        12px;
+
     border-radius: 22px;
 
     display: flex;
+
     align-items: center;
+
     justify-content: center;
 
     font-size: 34px;
@@ -152,20 +219,27 @@ input {
         );
 
     box-shadow:
-        0 0 35px rgba(73,126,255,.38);
+        0 0 35px
+        rgba(73,126,255,.38);
 
     animation:
-        logoFloat 3s ease-in-out infinite;
+        logoFloat
+        3s
+        ease-in-out
+        infinite;
 }
 
 @keyframes logoFloat {
+
     0%,100% {
+
         transform:
             translateY(0)
             rotate(0deg);
     }
 
     50% {
+
         transform:
             translateY(-7px)
             rotate(2deg);
@@ -173,51 +247,76 @@ input {
 }
 
 .header h1 {
+
     margin: 0;
+
     font-size: 27px;
+
     font-weight: 800;
+
     letter-spacing: -.5px;
 }
 
 .header p {
-    margin: 7px 0 0;
+
+    margin:
+        7px
+        0
+        0;
+
     color: #8f9bb0;
+
     font-size: 13px;
 }
 
-/* =========================
+
+/* =========================================================
    MAIN
-========================= */
+========================================================= */
 
 .main {
+
     position: relative;
+
     z-index: 2;
+
     max-width: 1100px;
+
     margin: auto;
 }
 
-/* =========================
+
+/* =========================================================
    CARDS
-========================= */
+========================================================= */
 
 .cards {
+
     display: grid;
+
     grid-template-columns:
-        repeat(3, minmax(0, 1fr));
+        repeat(
+            3,
+            minmax(0,1fr)
+        );
 
     gap: 16px;
 }
 
 .card {
+
     position: relative;
+
     overflow: hidden;
 
     min-width: 0;
 
     border:
-        1px solid rgba(255,255,255,.08);
+        1px solid
+        rgba(255,255,255,.08);
 
     border-radius: 25px;
+
     padding: 18px;
 
     background:
@@ -228,9 +327,11 @@ input {
         );
 
     box-shadow:
-        0 15px 45px rgba(0,0,0,.25);
+        0 15px 45px
+        rgba(0,0,0,.25);
 
-    backdrop-filter: blur(15px);
+    backdrop-filter:
+        blur(15px);
 
     transition:
         transform .25s ease,
@@ -239,16 +340,20 @@ input {
 }
 
 .card:hover {
-    transform: translateY(-4px);
+
+    transform:
+        translateY(-4px);
 
     border-color:
         rgba(93,147,255,.35);
 
     box-shadow:
-        0 20px 55px rgba(0,0,0,.35);
+        0 20px 55px
+        rgba(0,0,0,.35);
 }
 
 .card::before {
+
     content: "";
 
     position: absolute;
@@ -267,8 +372,15 @@ input {
     filter: blur(3px);
 }
 
+
+/* =========================================================
+   CARD HEADER
+========================================================= */
+
 .card-header {
+
     display: flex;
+
     align-items: center;
 
     gap: 13px;
@@ -277,6 +389,7 @@ input {
 }
 
 .function-logo {
+
     width: 58px;
     height: 58px;
 
@@ -285,7 +398,9 @@ input {
     border-radius: 17px;
 
     display: flex;
+
     align-items: center;
+
     justify-content: center;
 
     font-size: 28px;
@@ -298,23 +413,31 @@ input {
         );
 
     border:
-        1px solid rgba(255,255,255,.09);
+        1px solid
+        rgba(255,255,255,.09);
 
     animation:
-        functionFloat 3.2s ease-in-out infinite;
+        functionFloat
+        3.2s
+        ease-in-out
+        infinite;
 }
 
 @keyframes functionFloat {
+
     0%,100% {
-        transform: translateY(0);
+        transform:
+            translateY(0);
     }
 
     50% {
-        transform: translateY(-5px);
+        transform:
+            translateY(-5px);
     }
 }
 
 .groq-logo {
+
     background:
         linear-gradient(
             145deg,
@@ -323,10 +446,12 @@ input {
         );
 
     box-shadow:
-        0 0 25px rgba(10,190,130,.22);
+        0 0 25px
+        rgba(10,190,130,.22);
 }
 
 .gemini-logo {
+
     background:
         linear-gradient(
             145deg,
@@ -335,10 +460,12 @@ input {
         );
 
     box-shadow:
-        0 0 25px rgba(100,100,255,.25);
+        0 0 25px
+        rgba(100,100,255,.25);
 }
 
 .compressor-logo {
+
     background:
         linear-gradient(
             145deg,
@@ -347,19 +474,24 @@ input {
         );
 
     box-shadow:
-        0 0 25px rgba(255,100,70,.25);
+        0 0 25px
+        rgba(255,100,70,.25);
 }
 
 .card-title {
+
     min-width: 0;
 }
 
 .card-title h2 {
+
     margin: 0;
+
     font-size: 17px;
 }
 
 .card-title span {
+
     display: block;
 
     margin-top: 4px;
@@ -369,29 +501,37 @@ input {
     color: #8490a6;
 }
 
-/* =========================
+
+/* =========================================================
    LABEL
-========================= */
+========================================================= */
 
 .label {
+
     display: block;
 
-    margin: 12px 0 7px;
+    margin:
+        12px
+        0
+        7px;
 
     color: #aeb8ca;
 
     font-size: 12px;
 }
 
-/* =========================
+
+/* =========================================================
    INPUT
-========================= */
+========================================================= */
 
 .input {
+
     width: 100%;
 
     border:
-        1px solid rgba(255,255,255,.08);
+        1px solid
+        rgba(255,255,255,.08);
 
     outline: none;
 
@@ -407,21 +547,27 @@ input {
 }
 
 .input:focus {
-    border-color: #4b8cff;
+
+    border-color:
+        #4b8cff;
 
     box-shadow:
-        0 0 0 3px rgba(75,140,255,.10);
+        0 0 0 3px
+        rgba(75,140,255,.10);
 }
 
-/* =========================
+
+/* =========================================================
    FILE
-========================= */
+========================================================= */
 
 .file-box {
+
     width: 100%;
 
     border:
-        1px dashed rgba(108,143,210,.4);
+        1px dashed
+        rgba(108,143,210,.4);
 
     border-radius: 15px;
 
@@ -432,6 +578,7 @@ input {
 }
 
 .file-box input {
+
     width: 100%;
 
     color: #aab4c5;
@@ -439,11 +586,13 @@ input {
     font-size: 11px;
 }
 
-/* =========================
+
+/* =========================================================
    BUTTONS
-========================= */
+========================================================= */
 
 .btn-row {
+
     display: grid;
 
     grid-template-columns:
@@ -455,16 +604,21 @@ input {
 }
 
 .btn {
+
     border: 0;
+
     outline: none;
 
     cursor: pointer;
 
     border-radius: 13px;
 
-    padding: 12px 9px;
+    padding:
+        12px
+        9px;
 
     font-size: 11px;
+
     font-weight: 700;
 
     color: white;
@@ -475,15 +629,21 @@ input {
 }
 
 .btn:active {
-    transform: scale(.96);
+
+    transform:
+        scale(.96);
 }
 
 .btn:disabled {
+
     opacity: .45;
-    cursor: not-allowed;
+
+    cursor:
+        not-allowed;
 }
 
 .btn-primary {
+
     background:
         linear-gradient(
             135deg,
@@ -492,17 +652,22 @@ input {
         );
 
     box-shadow:
-        0 8px 20px rgba(68,100,255,.18);
+        0 8px 20px
+        rgba(68,100,255,.18);
 }
 
 .btn-secondary {
-    background: #161f32;
+
+    background:
+        #161f32;
 
     border:
-        1px solid rgba(255,255,255,.07);
+        1px solid
+        rgba(255,255,255,.07);
 }
 
 .btn-compress {
+
     width: 100%;
 
     margin-top: 12px;
@@ -515,11 +680,13 @@ input {
         );
 }
 
-/* =========================
+
+/* =========================================================
    RESULT
-========================= */
+========================================================= */
 
 .result {
+
     margin-top: 14px;
 
     min-height: 90px;
@@ -528,13 +695,16 @@ input {
 
     padding: 12px;
 
-    background: #080d18;
+    background:
+        #080d18;
 
     border:
-        1px solid rgba(255,255,255,.06);
+        1px solid
+        rgba(255,255,255,.06);
 }
 
 .result-title {
+
     color: #8d9ab0;
 
     font-size: 10px;
@@ -543,6 +713,7 @@ input {
 }
 
 .result-text {
+
     color: #dce4f2;
 
     font-size: 11px;
@@ -553,26 +724,30 @@ input {
 
     word-break: break-word;
 
-    max-height: 150px;
+    max-height: 180px;
 
     overflow-y: auto;
 }
 
 .placeholder {
+
     color: #59657a;
 }
 
-/* =========================
+
+/* =========================================================
    PROGRESS
-========================= */
+========================================================= */
 
 .progress-wrap {
+
     display: none;
 
     margin-top: 14px;
 }
 
 .progress-top {
+
     display: flex;
 
     justify-content:
@@ -586,6 +761,7 @@ input {
 }
 
 .progress {
+
     width: 100%;
 
     height: 8px;
@@ -594,11 +770,14 @@ input {
 
     border-radius: 99px;
 
-    background: #111827;
+    background:
+        #111827;
 }
 
 .progress-bar {
+
     width: 0%;
+
     height: 100%;
 
     border-radius: inherit;
@@ -615,15 +794,17 @@ input {
         width .35s ease;
 }
 
-/* =========================
+
+/* =========================================================
    COMPRESSION INFO
-========================= */
+========================================================= */
 
 .compression-info {
+
     display: none;
 
     grid-template-columns:
-        repeat(3, 1fr);
+        repeat(3,1fr);
 
     gap: 7px;
 
@@ -631,16 +812,21 @@ input {
 }
 
 .info-box {
-    padding: 9px 5px;
+
+    padding:
+        9px
+        5px;
 
     border-radius: 11px;
 
-    background: #0b111e;
+    background:
+        #0b111e;
 
     text-align: center;
 }
 
 .info-label {
+
     display: block;
 
     color: #657289;
@@ -649,6 +835,7 @@ input {
 }
 
 .info-value {
+
     display: block;
 
     margin-top: 4px;
@@ -661,6 +848,7 @@ input {
 }
 
 .compress-status {
+
     margin-top: 10px;
 
     text-align: center;
@@ -670,11 +858,13 @@ input {
     color: #8d9ab0;
 }
 
-/* =========================
+
+/* =========================================================
    MESSAGE
-========================= */
+========================================================= */
 
 .message {
+
     display: none;
 
     margin-top: 10px;
@@ -693,27 +883,33 @@ input {
     color: #aeb9ca;
 }
 
-/* =========================
+
+/* =========================================================
    FOOTER
-========================= */
+========================================================= */
 
 .footer {
+
     position: relative;
 
     z-index: 2;
 
     text-align: center;
 
-    padding: 22px 0 8px;
+    padding:
+        22px
+        0
+        8px;
 
     color: #4f5b70;
 
     font-size: 10px;
 }
 
-/* =========================
+
+/* =========================================================
    MOBILE
-========================= */
+========================================================= */
 
 @media (max-width: 820px) {
 
@@ -722,67 +918,95 @@ input {
     }
 
     .cards {
+
         grid-template-columns:
-            repeat(3, minmax(245px, 1fr));
+            repeat(
+                3,
+                minmax(245px,1fr)
+            );
 
         overflow-x: auto;
 
-        scroll-snap-type: x mandatory;
+        scroll-snap-type:
+            x mandatory;
 
         padding-bottom: 8px;
     }
 
     .card {
-        scroll-snap-align: start;
+
+        scroll-snap-align:
+            start;
     }
 
     .cards::-webkit-scrollbar {
+
         height: 5px;
     }
 
     .cards::-webkit-scrollbar-track {
-        background: #0b101b;
 
-        border-radius: 99px;
+        background:
+            #0b101b;
+
+        border-radius:
+            99px;
     }
 
     .cards::-webkit-scrollbar-thumb {
-        background: #26324a;
 
-        border-radius: 99px;
+        background:
+            #26324a;
+
+        border-radius:
+            99px;
     }
 }
 
 @media (max-width: 600px) {
 
     .header h1 {
+
         font-size: 23px;
     }
 
     .header p {
+
         font-size: 11px;
     }
 
     .cards {
+
         grid-template-columns:
-            repeat(3, 285px);
+            repeat(
+                3,
+                285px
+            );
     }
 
     .card {
+
         padding: 16px;
     }
 }
 
 </style>
+
 </head>
+
 
 <body>
 
+
 <div class="bg-orb one"></div>
+
 <div class="bg-orb two"></div>
+
 <div class="bg-orb three"></div>
 
+
 <div class="app">
+
 
 <header class="header">
 
@@ -790,7 +1014,9 @@ input {
         🎬
     </div>
 
-    <h1>Media Toolkit</h1>
+    <h1>
+        Media Toolkit
+    </h1>
 
     <p>
         AI Transcription & Smart Compression
@@ -798,25 +1024,33 @@ input {
 
 </header>
 
+
 <main class="main">
+
 
 <section class="cards">
 
-<!-- =========================
+
+<!-- =====================================================
      GROQ
-========================= -->
+====================================================== -->
 
 <article class="card">
 
+
     <div class="card-header">
+
 
         <div class="function-logo groq-logo">
             🎙️
         </div>
 
+
         <div class="card-title">
 
-            <h2>Groq Transcript</h2>
+            <h2>
+                Groq Transcript
+            </h2>
 
             <span>
                 Fast AI Whisper
@@ -824,11 +1058,14 @@ input {
 
         </div>
 
+
     </div>
+
 
     <label class="label">
         Groq API Key
     </label>
+
 
     <input
         id="groqKey"
@@ -838,9 +1075,11 @@ input {
         autocomplete="off"
     >
 
+
     <label class="label">
         Audio / Video
     </label>
+
 
     <div class="file-box">
 
@@ -852,7 +1091,9 @@ input {
 
     </div>
 
+
     <div class="btn-row">
+
 
         <button
             class="btn btn-primary"
@@ -862,6 +1103,7 @@ input {
             🕐 Timestamp
         </button>
 
+
         <button
             class="btn btn-secondary"
             id="groqDialogueBtn"
@@ -870,13 +1112,17 @@ input {
             💬 Dialogue
         </button>
 
+
     </div>
 
+
     <div class="result">
+
 
         <div class="result-title">
             Transcript Result
         </div>
+
 
         <div
             id="groqResult"
@@ -885,34 +1131,46 @@ input {
             Transcript result will appear here...
         </div>
 
+
     </div>
+
 
     <button
         class="btn btn-secondary"
-        style="width:100%;margin-top:9px"
+        style="
+            width:100%;
+            margin-top:9px;
+        "
         onclick="copyText('groqResult')"
     >
         📋 Copy
     </button>
 
+
 </article>
 
 
-<!-- =========================
+
+<!-- =====================================================
      GEMINI
-========================= -->
+====================================================== -->
 
 <article class="card">
 
+
     <div class="card-header">
+
 
         <div class="function-logo gemini-logo">
             ✨
         </div>
 
+
         <div class="card-title">
 
-            <h2>Gemini Transcript</h2>
+            <h2>
+                Gemini Transcript
+            </h2>
 
             <span>
                 Google AI
@@ -920,11 +1178,14 @@ input {
 
         </div>
 
+
     </div>
+
 
     <label class="label">
         Gemini API Key
     </label>
+
 
     <input
         id="geminiKey"
@@ -934,9 +1195,11 @@ input {
         autocomplete="off"
     >
 
+
     <label class="label">
         Audio / Video
     </label>
+
 
     <div class="file-box">
 
@@ -948,7 +1211,9 @@ input {
 
     </div>
 
+
     <div class="btn-row">
+
 
         <button
             class="btn btn-primary"
@@ -957,6 +1222,7 @@ input {
             🕐 Timestamp
         </button>
 
+
         <button
             class="btn btn-secondary"
             onclick="geminiDialogue()"
@@ -964,13 +1230,17 @@ input {
             💬 Dialogue
         </button>
 
+
     </div>
 
+
     <div class="result">
+
 
         <div class="result-title">
             Transcript Result
         </div>
+
 
         <div
             id="geminiResult"
@@ -979,34 +1249,46 @@ input {
             Transcript result will appear here...
         </div>
 
+
     </div>
+
 
     <button
         class="btn btn-secondary"
-        style="width:100%;margin-top:9px"
+        style="
+            width:100%;
+            margin-top:9px;
+        "
         onclick="copyText('geminiResult')"
     >
         📋 Copy
     </button>
 
+
 </article>
 
 
-<!-- =========================
+
+<!-- =====================================================
      COMPRESSOR
-========================= -->
+====================================================== -->
 
 <article class="card">
 
+
     <div class="card-header">
+
 
         <div class="function-logo compressor-logo">
             ⚡
         </div>
 
+
         <div class="card-title">
 
-            <h2>Smart Compressor</h2>
+            <h2>
+                Smart Compressor
+            </h2>
 
             <span>
                 Native Android Compression
@@ -1014,11 +1296,14 @@ input {
 
         </div>
 
+
     </div>
+
 
     <label class="label">
         Select Media
     </label>
+
 
     <div class="file-box">
 
@@ -1030,6 +1315,7 @@ input {
         >
 
     </div>
+
 
     <div
         id="selectedFileName"
@@ -1045,6 +1331,7 @@ input {
         No file selected
     </div>
 
+
     <button
         id="compressBtn"
         class="btn btn-compress"
@@ -1053,43 +1340,55 @@ input {
         ⚡ Compress Media
     </button>
 
+
     <div
         id="compressMessage"
         class="message"
     ></div>
+
 
     <div
         id="compressProgress"
         class="progress-wrap"
     >
 
+
         <div class="progress-top">
+
 
             <span id="compressText">
                 Preparing...
             </span>
 
+
             <span id="compressPercent">
                 0%
             </span>
 
+
         </div>
 
+
         <div class="progress">
+
 
             <div
                 id="compressProgressBar"
                 class="progress-bar"
             ></div>
 
+
         </div>
 
+
     </div>
+
 
     <div
         id="compressionInfo"
         class="compression-info"
     >
+
 
         <div class="info-box">
 
@@ -1106,6 +1405,7 @@ input {
 
         </div>
 
+
         <div class="info-box">
 
             <span class="info-label">
@@ -1120,6 +1420,7 @@ input {
             </span>
 
         </div>
+
 
         <div class="info-box">
 
@@ -1136,7 +1437,9 @@ input {
 
         </div>
 
+
     </div>
+
 
     <div
         id="compressStatus"
@@ -1144,6 +1447,7 @@ input {
     >
         Ready
     </div>
+
 
     <button
         id="saveCompressedBtn"
@@ -1158,17 +1462,25 @@ input {
         💾 Save Compressed File
     </button>
 
+
 </article>
+
 
 </section>
 
+
 </main>
 
+
 <footer class="footer">
+
     Media Toolkit • Android Native Engine
+
 </footer>
 
+
 </div>
+
 
 
 <script>
@@ -1183,6 +1495,7 @@ function formatBytes(bytes) {
         return "0 B";
     }
 
+
     const units = [
         "B",
         "KB",
@@ -1190,11 +1503,13 @@ function formatBytes(bytes) {
         "GB"
     ];
 
+
     const i =
         Math.floor(
             Math.log(bytes) /
             Math.log(1024)
         );
+
 
     return (
         parseFloat(
@@ -1203,23 +1518,32 @@ function formatBytes(bytes) {
                 Math.pow(1024, i)
             ).toFixed(2)
         )
-        + " "
-        + units[i]
+        +
+        " "
+        +
+        units[i]
     );
 }
 
+
+/* =========================================================
+   COPY
+========================================================= */
 
 function copyText(id) {
 
     const element =
         document.getElementById(id);
 
+
     if (!element) {
         return;
     }
 
+
     const text =
         element.innerText;
+
 
     if (
         !text ||
@@ -1230,41 +1554,65 @@ function copyText(id) {
         return;
     }
 
-    navigator.clipboard
-        .writeText(text)
-        .then(() => {
 
-            alert("Copied ✓");
+    if (
+        navigator.clipboard &&
+        navigator.clipboard.writeText
+    ) {
 
-        })
-        .catch(() => {
+        navigator.clipboard
+            .writeText(text)
+            .then(() => {
 
-            const textarea =
-                document.createElement(
-                    "textarea"
-                );
+                alert("Copied ✓");
 
-            textarea.value = text;
+            })
+            .catch(() => {
 
-            document.body.appendChild(
-                textarea
-            );
+                fallbackCopy(text);
 
-            textarea.select();
+            });
 
-            document.execCommand(
-                "copy"
-            );
+    } else {
 
-            textarea.remove();
+        fallbackCopy(text);
+    }
+}
 
-            alert("Copied ✓");
-        });
+
+function fallbackCopy(text) {
+
+    const textarea =
+        document.createElement(
+            "textarea"
+        );
+
+
+    textarea.value = text;
+
+
+    document.body.appendChild(
+        textarea
+    );
+
+
+    textarea.select();
+
+
+    document.execCommand(
+        "copy"
+    );
+
+
+    textarea.remove();
+
+
+    alert("Copied ✓");
 }
 
 
 /* =========================================================
-   FILE DISPLAY
+   FILE NAME
 ========================================================= */
 
 function showSelectedFile() {
@@ -1274,14 +1622,20 @@ function showSelectedFile() {
             "compressFile"
         );
 
+
     const name =
         document.getElementById(
             "selectedFileName"
         );
 
-    if (!input || !name) {
+
+    if (
+        !input ||
+        !name
+    ) {
         return;
     }
+
 
     if (
         !input.files ||
@@ -1294,13 +1648,17 @@ function showSelectedFile() {
         return;
     }
 
+
     const file =
         input.files[0];
+
 
     name.textContent =
         file.name +
         " • " +
-        formatBytes(file.size);
+        formatBytes(
+            file.size
+        );
 }
 
 
@@ -1310,15 +1668,23 @@ function showSelectedFile() {
 
 async function groqTimestamp() {
 
-    await groqTranscribe(true);
+    await groqTranscribe(
+        true
+    );
 }
 
 
 async function groqDialogue() {
 
-    await groqTranscribe(false);
+    await groqTranscribe(
+        false
+    );
 }
 
+
+/* =========================================================
+   GROQ TRANSCRIBE
+========================================================= */
 
 async function groqTranscribe(
     timestampMode
@@ -1329,26 +1695,32 @@ async function groqTranscribe(
             "groqKey"
         ).value.trim();
 
+
     const fileInput =
         document.getElementById(
             "groqFile"
         );
+
 
     const result =
         document.getElementById(
             "groqResult"
         );
 
-    const timestampButton =
+
+    const timestampBtn =
         document.getElementById(
             "groqTimestampBtn"
         );
 
-    const dialogueButton =
+
+    const dialogueBtn =
         document.getElementById(
             "groqDialogueBtn"
         );
 
+
+    /* API KEY */
 
     if (!key) {
 
@@ -1362,6 +1734,8 @@ async function groqTranscribe(
         return;
     }
 
+
+    /* FILE */
 
     if (
         !fileInput.files ||
@@ -1383,14 +1757,18 @@ async function groqTranscribe(
         fileInput.files[0];
 
 
-    timestampButton.disabled = true;
-    dialogueButton.disabled = true;
+    timestampBtn.disabled = true;
+
+    dialogueBtn.disabled = true;
 
 
     result.textContent =
         timestampMode
-            ? "Timestamp transcription လုပ်နေပါတယ်..."
-            : "Transcribing...";
+            ?
+            "Speech timing တွက်နေပါတယ်..."
+            :
+            "Transcribing...";
+
 
     result.classList.remove(
         "placeholder"
@@ -1398,6 +1776,7 @@ async function groqTranscribe(
 
 
     try {
+
 
         const formData =
             new FormData();
@@ -1415,29 +1794,43 @@ async function groqTranscribe(
         );
 
 
+        /* =================================================
+           TIMESTAMP REQUEST
+        ================================================= */
+
         if (timestampMode) {
 
-            /*
-             * Word-level + segment-level
-             * timestamps တောင်းခြင်း
-             */
 
             formData.append(
                 "response_format",
                 "verbose_json"
             );
 
+
+            /*
+             * အရေးကြီး
+             *
+             * Word start + end timestamp
+             */
+
             formData.append(
                 "timestamp_granularities[]",
                 "word"
             );
+
+
+            /*
+             * Segment fallback
+             */
 
             formData.append(
                 "timestamp_granularities[]",
                 "segment"
             );
 
+
         } else {
+
 
             formData.append(
                 "response_format",
@@ -1446,18 +1839,26 @@ async function groqTranscribe(
         }
 
 
+        /* =================================================
+           API
+        ================================================= */
+
         const response =
             await fetch(
                 "https://api.groq.com/openai/v1/audio/transcriptions",
                 {
+
                     method: "POST",
 
                     headers: {
+
                         "Authorization":
-                            "Bearer " + key
+                            "Bearer " +
+                            key
                     },
 
-                    body: formData
+                    body:
+                        formData
                 }
             );
 
@@ -1475,308 +1876,177 @@ async function groqTranscribe(
         }
 
 
-        /*
-         * =====================================
-         * TIMESTAMP MODE
-         * =====================================
-         */
-
-        if (timestampMode) {
-
-            /*
-             * အဓိကနည်းလမ်း:
-             *
-             * word-level timestamps ကို
-             * အသုံးပြုပါတယ်။
-             */
-
-            if (
-                Array.isArray(data.words) &&
-                data.words.length > 0
-            ) {
-
-                let output = "";
-
-                let currentText = "";
-
-                let lineStart = null;
-
-                let lastEnd = null;
-
-
-                data.words.forEach(
-                    (word, index) => {
-
-                        const wordText =
-                            (
-                                word.word ||
-                                ""
-                            ).trim();
-
-
-                        const start =
-                            Number(
-                                word.start
-                            );
-
-
-                        const end =
-                            Number(
-                                word.end
-                            );
-
-
-                        if (
-                            !wordText ||
-                            !Number.isFinite(
-                                start
-                            )
-                        ) {
-                            return;
-                        }
-
-
-                        /*
-                         * စာကြောင်းစတဲ့အချိန်
-                         */
-
-                        if (
-                            lineStart === null
-                        ) {
-
-                            lineStart =
-                                start;
-                        }
-
-
-                        /*
-                         * word ထည့်
-                         */
-
-                        currentText +=
-                            (
-                                currentText
-                                    ? " "
-                                    : ""
-                            ) +
-                            wordText;
-
-
-                        /*
-                         * လက်ရှိ word ရဲ့
-                         * end time
-                         */
-
-                        if (
-                            Number.isFinite(
-                                end
-                            )
-                        ) {
-
-                            lastEnd =
-                                end;
-                        }
-
-
-                        /*
-                         * နောက် word
-                         */
-
-                        const nextWord =
-                            data.words[
-                                index + 1
-                            ];
-
-
-                        let nextStart =
-                            null;
-
-
-                        if (
-                            nextWord &&
-                            Number.isFinite(
-                                Number(
-                                    nextWord.start
-                                )
-                            )
-                        ) {
-
-                            nextStart =
-                                Number(
-                                    nextWord.start
-                                );
-                        }
-
-
-                        /*
-                         * စကားပြောတဲ့အပိုင်း
-                         * 6 sec ပြည့်ရင်
-                         * timestamp အသစ်ထုတ်
-                         */
-
-                        const duration =
-                            (
-                                lastEnd !== null &&
-                                lineStart !== null
-                            )
-                            ?
-                            (
-                                lastEnd -
-                                lineStart
-                            )
-                            :
-                            0;
-
-
-                        /*
-                         * စကားလုံးနှစ်ခုကြား
-                         * 1.2 sec ကျော်ရပ်နားရင်
-                         * line အသစ်စ
-                         */
-
-                        const pause =
-                            (
-                                nextStart !== null &&
-                                lastEnd !== null
-                            )
-                            ?
-                            (
-                                nextStart -
-                                lastEnd
-                            )
-                            :
-                            0;
-
-
-                        if (
-                            duration >= 6 ||
-                            pause >= 1.2
-                        ) {
-
-                            if (
-                                currentText.trim()
-                            ) {
-
-                                output +=
-                                    "[" +
-                                    formatTime(
-                                        lineStart
-                                    ) +
-                                    "] " +
-                                    currentText.trim() +
-                                    "\n";
-                            }
-
-
-                            currentText = "";
-
-                            lineStart = null;
-
-                            lastEnd = null;
-                        }
-                    }
-                );
-
-
-                /*
-                 * နောက်ဆုံးစာကြောင်း
-                 */
-
-                if (
-                    currentText.trim() &&
-                    lineStart !== null
-                ) {
-
-                    output +=
-                        "[" +
-                        formatTime(
-                            lineStart
-                        ) +
-                        "] " +
-                        currentText.trim();
-                }
-
-
-                result.textContent =
-                    output.trim() ||
-                    "Transcript မရပါ။";
-
-
-            } else if (
-                Array.isArray(
-                    data.segments
-                )
-            ) {
-
-                /*
-                 * Word timestamp မရခဲ့ရင်
-                 * segment timestamp fallback
-                 */
-
-                let output = "";
-
-
-                data.segments.forEach(
-                    segment => {
-
-                        const start =
-                            Number(
-                                segment.start ||
-                                0
-                            );
-
-
-                        const text =
-                            (
-                                segment.text ||
-                                ""
-                            ).trim();
-
-
-                        if (!text) {
-                            return;
-                        }
-
-
-                        output +=
-                            "[" +
-                            formatTime(
-                                start
-                            ) +
-                            "] " +
-                            text +
-                            "\n";
-                    }
-                );
-
-
-                result.textContent =
-                    output.trim() ||
-                    "Transcript မရပါ။";
-
-
-            } else {
-
-                result.textContent =
-                    "Timestamp data မရပါ။";
-            }
-
-
-        } else {
-
-            /*
-             * =================================
-             * DIALOGUE ONLY
-             * =================================
-             */
+        /* =================================================
+           DIALOGUE ONLY
+        ================================================= */
+
+        if (!timestampMode) {
 
             result.textContent =
                 data.text ||
                 "Transcript မရပါ။";
+
+            return;
         }
 
 
+        /* =================================================
+           WORD LEVEL TIMESTAMP
+        ================================================= */
+
+        if (
+            Array.isArray(
+                data.words
+            ) &&
+            data.words.length > 0
+        ) {
+
+
+            const subtitles =
+                buildAccurateSubtitles(
+                    data.words
+                );
+
+
+            if (
+                subtitles.length === 0
+            ) {
+
+                result.textContent =
+                    "Speech timing မရပါ။";
+
+                return;
+            }
+
+
+            let output = "";
+
+
+            subtitles.forEach(
+                (
+                    subtitle,
+                    index
+                ) => {
+
+
+                    output +=
+                        "[" +
+                        formatTimePrecise(
+                            subtitle.start
+                        ) +
+                        " → " +
+                        formatTimePrecise(
+                            subtitle.end
+                        ) +
+                        "] " +
+                        subtitle.text;
+
+
+                    if (
+                        index <
+                        subtitles.length - 1
+                    ) {
+
+                        output +=
+                            "\n\n";
+                    }
+                }
+            );
+
+
+            result.textContent =
+                output.trim();
+
+
+            return;
+        }
+
+
+        /* =================================================
+           SEGMENT FALLBACK
+        ================================================= */
+
+        if (
+            Array.isArray(
+                data.segments
+            ) &&
+            data.segments.length > 0
+        ) {
+
+
+            let output = "";
+
+
+            data.segments.forEach(
+                segment => {
+
+
+                    const start =
+                        Number(
+                            segment.start
+                        );
+
+
+                    const end =
+                        Number(
+                            segment.end
+                        );
+
+
+                    const text =
+                        (
+                            segment.text ||
+                            ""
+                        ).trim();
+
+
+                    if (
+                        !text ||
+                        !Number.isFinite(
+                            start
+                        )
+                    ) {
+                        return;
+                    }
+
+
+                    output +=
+                        "[" +
+                        formatTimePrecise(
+                            start
+                        ) +
+                        " → " +
+                        formatTimePrecise(
+                            Number.isFinite(
+                                end
+                            )
+                            ?
+                            end
+                            :
+                            start
+                        ) +
+                        "] " +
+                        text +
+                        "\n\n";
+                }
+            );
+
+
+            result.textContent =
+                output.trim() ||
+                "Transcript မရပါ။";
+
+
+            return;
+        }
+
+
+        result.textContent =
+            "Timestamp data မရပါ။";
+
+
     } catch (error) {
+
 
         result.textContent =
             "Error: " +
@@ -1785,20 +2055,336 @@ async function groqTranscribe(
                 "Groq transcription failed"
             );
 
+
     } finally {
 
-        timestampButton.disabled = false;
 
-        dialogueButton.disabled = false;
+        timestampBtn.disabled =
+            false;
+
+
+        dialogueBtn.disabled =
+            false;
     }
 }
 
 
 /* =========================================================
-   TIME FORMAT
+   ACCURATE SUBTITLE BUILDER
 ========================================================= */
 
-function formatTime(seconds) {
+function buildAccurateSubtitles(
+    words
+) {
+
+
+    const subtitles = [];
+
+
+    let currentWords = [];
+
+
+    let currentStart = null;
+
+    let currentEnd = null;
+
+
+    for (
+        let i = 0;
+        i < words.length;
+        i++
+    ) {
+
+
+        const item =
+            words[i];
+
+
+        const text =
+            (
+                item.word ||
+                ""
+            ).trim();
+
+
+        const start =
+            Number(
+                item.start
+            );
+
+
+        const end =
+            Number(
+                item.end
+            );
+
+
+        if (
+            !text ||
+            !Number.isFinite(
+                start
+            )
+        ) {
+
+            continue;
+        }
+
+
+        /* =================================================
+           FIRST WORD
+        ================================================= */
+
+        if (
+            currentWords.length === 0
+        ) {
+
+
+            currentStart =
+                start;
+
+
+            currentEnd =
+                Number.isFinite(end)
+                    ?
+                    end
+                    :
+                    start;
+
+
+            currentWords.push(
+                text
+            );
+
+
+            continue;
+        }
+
+
+        /* =================================================
+           GAP
+        ================================================= */
+
+        const previousEnd =
+            currentEnd;
+
+
+        const gap =
+            start -
+            previousEnd;
+
+
+        const duration =
+            start -
+            currentStart;
+
+
+        const previousText =
+            currentWords[
+                currentWords.length - 1
+            ];
+
+
+        /*
+         * punctuation
+         */
+
+        const punctuationBreak =
+            /[.!?၊။…]$/.test(
+                previousText
+            );
+
+
+        /*
+         * subtitle ခွဲမယ့် condition
+         *
+         * pause >= 0.7 sec
+         * OR
+         * duration >= 5 sec
+         * OR
+         * punctuation
+         */
+
+        if (
+            gap >= 0.7 ||
+            duration >= 5.0 ||
+            punctuationBreak
+        ) {
+
+
+            subtitles.push({
+
+                start:
+                    currentStart,
+
+                end:
+                    currentEnd,
+
+                text:
+                    currentWords.join(
+                        " "
+                    )
+            });
+
+
+            currentWords = [
+                text
+            ];
+
+
+            currentStart =
+                start;
+
+
+            currentEnd =
+                Number.isFinite(end)
+                    ?
+                    end
+                    :
+                    start;
+
+
+        } else {
+
+
+            currentWords.push(
+                text
+            );
+
+
+            if (
+                Number.isFinite(end)
+            ) {
+
+                currentEnd =
+                    end;
+            }
+        }
+    }
+
+
+    /* =================================================
+       LAST SUBTITLE
+    ================================================= */
+
+    if (
+        currentWords.length > 0 &&
+        currentStart !== null
+    ) {
+
+
+        subtitles.push({
+
+            start:
+                currentStart,
+
+            end:
+                currentEnd,
+
+            text:
+                currentWords.join(
+                    " "
+                )
+        });
+    }
+
+
+    return subtitles;
+}
+
+
+/* =========================================================
+   PRECISE TIME
+========================================================= */
+
+function formatTimePrecise(
+    seconds
+) {
+
+
+    seconds =
+        Math.max(
+            0,
+            Number(seconds) || 0
+        );
+
+
+    const hours =
+        Math.floor(
+            seconds / 3600
+        );
+
+
+    const minutes =
+        Math.floor(
+            (
+                seconds % 3600
+            ) / 60
+        );
+
+
+    const remaining =
+        seconds % 60;
+
+
+    const wholeSeconds =
+        Math.floor(
+            remaining
+        );
+
+
+    const milliseconds =
+        Math.round(
+            (
+                remaining -
+                wholeSeconds
+            ) *
+            1000
+        );
+
+
+    return (
+
+        String(hours)
+            .padStart(2,"0")
+
+        +
+
+        ":"
+
+        +
+
+        String(minutes)
+            .padStart(2,"0")
+
+        +
+
+        ":"
+
+        +
+
+        String(wholeSeconds)
+            .padStart(2,"0")
+
+        +
+
+        "."
+
+        +
+
+        String(milliseconds)
+            .padStart(3,"0")
+    );
+}
+
+
+/* =========================================================
+   NORMAL TIME
+========================================================= */
+
+function formatTime(
+    seconds
+) {
+
 
     seconds =
         Math.max(
@@ -1828,11 +2414,27 @@ function formatTime(seconds) {
 
 
     return (
-        String(h).padStart(2, "0") +
-        ":" +
-        String(m).padStart(2, "0") +
-        ":" +
-        String(s).padStart(2, "0")
+
+        String(h)
+            .padStart(2,"0")
+
+        +
+
+        ":"
+
+        +
+
+        String(m)
+            .padStart(2,"0")
+
+        +
+
+        ":"
+
+        +
+
+        String(s)
+            .padStart(2,"0")
     );
 }
 
@@ -1843,19 +2445,24 @@ function formatTime(seconds) {
 
 async function geminiTimestamp() {
 
-    await geminiTranscribe(true);
+    await geminiTranscribe(
+        true
+    );
 }
 
 
 async function geminiDialogue() {
 
-    await geminiTranscribe(false);
+    await geminiTranscribe(
+        false
+    );
 }
 
 
 async function geminiTranscribe(
     timestampMode
 ) {
+
 
     const key =
         document.getElementById(
@@ -1911,6 +2518,7 @@ async function geminiTranscribe(
     result.textContent =
         "Gemini processing...";
 
+
     result.classList.remove(
         "placeholder"
     );
@@ -1918,41 +2526,52 @@ async function geminiTranscribe(
 
     try {
 
+
         const base64 =
-            await fileToBase64(file);
+            await fileToBase64(
+                file
+            );
 
 
         const prompt =
             timestampMode
+
             ?
-            `
+
+`
 Transcribe this audio/video accurately.
 
-The spoken language may be Burmese or another language.
+Return the transcript in the same language
+spoken in the audio.
 
-Return the transcript in the SAME spoken language.
+For timestamp mode, return each spoken section
+with its approximate START and END time.
 
-For timestamp mode, identify the actual
-approximate start time of each spoken section.
+Use exactly this format:
 
-Use this exact format:
+[00:00:00.000 --> 00:00:03.500] text
 
-[00:00:00] text
+The START time must be when the speech actually
+begins.
 
-The timestamp must represent when that speech
-actually begins, not the beginning of the whole file.
+The END time must be when the speech actually
+ends.
 
-Do not put timestamps before speech begins.
+Do not make timestamps start before the speech.
+
+Do not make timestamps continue after the speech.
 
 Do not add explanations.
 `
+
             :
-            `
+
+`
 Transcribe only the spoken dialogue from this
 audio/video.
 
-Return the transcript in the SAME language
-that is spoken in the audio.
+Return the transcript in the same language
+spoken in the audio.
 
 Do not add explanations.
 `;
@@ -1967,10 +2586,12 @@ Do not add explanations.
                     parts: [
 
                         {
-                            text: prompt
+                            text:
+                                prompt
                         },
 
                         {
+
                             inline_data: {
 
                                 mime_type:
@@ -1991,11 +2612,17 @@ Do not add explanations.
 
         const response =
             await fetch(
-                "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=" +
-                encodeURIComponent(key),
+
+                "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key="
+                +
+                encodeURIComponent(
+                    key
+                ),
+
                 {
 
-                    method: "POST",
+                    method:
+                        "POST",
 
                     headers: {
 
@@ -2004,7 +2631,9 @@ Do not add explanations.
                     },
 
                     body:
-                        JSON.stringify(body)
+                        JSON.stringify(
+                            body
+                        )
                 }
             );
 
@@ -2024,7 +2653,8 @@ Do not add explanations.
 
         const text =
             data.candidates?.[0]
-                ?.content?.parts
+                ?.content
+                ?.parts
                 ?.map(
                     part =>
                         part.text || ""
@@ -2040,6 +2670,7 @@ Do not add explanations.
 
     } catch (error) {
 
+
         result.textContent =
             "Error: " +
             (
@@ -2050,13 +2681,21 @@ Do not add explanations.
 }
 
 
-function fileToBase64(file) {
+/* =========================================================
+   BASE64
+========================================================= */
+
+function fileToBase64(
+    file
+) {
+
 
     return new Promise(
         (
             resolve,
             reject
         ) => {
+
 
             const reader =
                 new FileReader();
@@ -2065,16 +2704,19 @@ function fileToBase64(file) {
             reader.onload =
                 () => {
 
-                    const result =
+
+                    const data =
                         reader.result;
 
 
                     const comma =
-                        result.indexOf(",");
+                        data.indexOf(
+                            ","
+                        );
 
 
                     resolve(
-                        result.substring(
+                        data.substring(
                             comma + 1
                         )
                     );
@@ -2094,10 +2736,11 @@ function fileToBase64(file) {
 
 
 /* =========================================================
-   NATIVE ANDROID COMPRESSOR
+   COMPRESSOR
 ========================================================= */
 
 function compressMedia() {
+
 
     const fileInput =
         document.getElementById(
@@ -2116,9 +2759,11 @@ function compressMedia() {
         !fileInput.files.length
     ) {
 
+
         showCompressMessage(
             "အရင်ဆုံး Audio / Video file ရွေးပါ။"
         );
+
 
         return;
     }
@@ -2131,7 +2776,9 @@ function compressMedia() {
     resetCompressionUI();
 
 
-    button.disabled = true;
+    button.disabled =
+        true;
+
 
     button.textContent =
         "⏳ Compressing...";
@@ -2139,9 +2786,11 @@ function compressMedia() {
 
     if (
         window.Android &&
-        typeof window.Android.compressMedia ===
+        typeof
+        window.Android.compressMedia ===
         "function"
     ) {
+
 
         showCompressMessage(
             "Android file picker ဖွင့်နေပါတယ်..."
@@ -2159,7 +2808,9 @@ function compressMedia() {
     }
 
 
-    button.disabled = false;
+    button.disabled =
+        false;
+
 
     button.textContent =
         "⚡ Compress Media";
@@ -2172,7 +2823,7 @@ function compressMedia() {
 
 
 /* =========================================================
-   ANDROID PROGRESS
+   COMPRESSION PROGRESS
 ========================================================= */
 
 window.compressionProgress =
@@ -2180,6 +2831,7 @@ window.compressionProgress =
         percent,
         text
     ) {
+
 
         const progress =
             document.getElementById(
@@ -2226,11 +2878,15 @@ window.compressionProgress =
 
 
         bar.style.width =
-            percent + "%";
+            percent +
+            "%";
 
 
         percentText.textContent =
-            Math.round(percent) + "%";
+            Math.round(
+                percent
+            ) +
+            "%";
 
 
         progressText.textContent =
@@ -2245,7 +2901,7 @@ window.compressionProgress =
 
 
 /* =========================================================
-   ANDROID FINISHED
+   COMPRESSION FINISHED
 ========================================================= */
 
 window.compressionFinished =
@@ -2254,6 +2910,7 @@ window.compressionFinished =
         originalSize,
         outputSize
     ) {
+
 
         const button =
             document.getElementById(
@@ -2316,6 +2973,7 @@ window.compressionFinished =
             originalSize > 0
         ) {
 
+
             reduced =
                 (
                     (
@@ -2332,7 +2990,8 @@ window.compressionFinished =
             Math.max(
                 0,
                 reduced
-            ).toFixed(1) +
+            ).toFixed(1)
+            +
             "%";
 
 
@@ -2344,7 +3003,9 @@ window.compressionFinished =
             "Compression complete ✓";
 
 
-        button.disabled = false;
+        button.disabled =
+            false;
+
 
         button.textContent =
             "⚡ Compress Again";
@@ -2359,13 +3020,14 @@ window.compressionFinished =
 
 
 /* =========================================================
-   ANDROID ERROR
+   COMPRESSION ERROR
 ========================================================= */
 
 window.compressionFailed =
     function(
         message
     ) {
+
 
         const button =
             document.getElementById(
@@ -2379,7 +3041,8 @@ window.compressionFailed =
             );
 
 
-        button.disabled = false;
+        button.disabled =
+            false;
 
 
         button.textContent =
@@ -2398,18 +3061,22 @@ window.compressionFailed =
 
 
 /* =========================================================
-   SAVE
+   SAVE COMPRESSED
 ========================================================= */
 
 function saveCompressed() {
 
+
     if (
         window.Android &&
-        typeof window.Android.saveCompressed ===
+        typeof
+        window.Android.saveCompressed ===
         "function"
     ) {
 
+
         window.Android.saveCompressed();
+
 
         return;
     }
@@ -2422,10 +3089,11 @@ function saveCompressed() {
 
 
 /* =========================================================
-   UI HELPERS
+   RESET COMPRESSION UI
 ========================================================= */
 
 function resetCompressionUI() {
+
 
     const progress =
         document.getElementById(
@@ -2491,9 +3159,14 @@ function resetCompressionUI() {
 }
 
 
+/* =========================================================
+   MESSAGE
+========================================================= */
+
 function showCompressMessage(
     message
 ) {
+
 
     const element =
         document.getElementById(
@@ -2511,6 +3184,7 @@ function showCompressMessage(
 
 
 function hideCompressMessage() {
+
 
     const element =
         document.getElementById(
@@ -2535,6 +3209,7 @@ document.addEventListener(
     "DOMContentLoaded",
     function() {
 
+
         console.log(
             "Media Toolkit loaded"
         );
@@ -2542,18 +3217,22 @@ document.addEventListener(
 
         if (
             window.Android &&
-            typeof window.Android.compressMedia ===
+            typeof
+            window.Android.compressMedia ===
             "function"
         ) {
+
 
             console.log(
                 "Native Android compressor connected"
             );
 
+
         } else {
 
+
             console.log(
-                "Running in browser mode"
+                "Browser mode"
             );
         }
     }
@@ -2561,5 +3240,7 @@ document.addEventListener(
 
 </script>
 
+
 </body>
+
     </html>
