@@ -1,201 +1,2390 @@
 <!DOCTYPE html>
 <html lang="my">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Video & Audio Toolbox (Groq SRT)</title>
-    <!-- Tailwind CSS -->
-    <script src="https://cdn.tailwindcss.com"></script>
-    <!-- FFmpeg WASM & Util -->
-    <script src="https://unpkg.com/@ffmpeg/ffmpeg@0.12.10/dist/umd/ffmpeg.js"></script>
-    <script src="https://unpkg.com/@ffmpeg/util@0.12.1/dist/umd/util.js"></script>
+<meta charset="UTF-8">
+<meta name="viewport"
+      content="width=device-width,
+               initial-scale=1.0,
+               maximum-scale=1.0,
+               user-scalable=no">
+
+<title>Media Toolkit</title>
+
+<style>
+
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+:root {
+    --bg: #080b14;
+    --card: rgba(20, 25, 42, 0.82);
+    --card-border: rgba(255,255,255,0.10);
+    --text: #ffffff;
+    --muted: #9da5b8;
+    --blue: #4da3ff;
+    --purple: #9b6cff;
+    --cyan: #35e0ff;
+    --green: #39e58c;
+    --red: #ff5d73;
+}
+
+html,
+body {
+    width: 100%;
+    min-height: 100%;
+    background: var(--bg);
+    color: var(--text);
+    font-family:
+        Inter,
+        system-ui,
+        -apple-system,
+        BlinkMacSystemFont,
+        "Segoe UI",
+        sans-serif;
+}
+
+body {
+    overflow-x: hidden;
+}
+
+/* =========================
+   ANIMATED BACKGROUND
+========================= */
+
+.background {
+    position: fixed;
+    inset: 0;
+    overflow: hidden;
+    z-index: 0;
+    pointer-events: none;
+}
+
+.orb {
+    position: absolute;
+    border-radius: 50%;
+    filter: blur(70px);
+    opacity: 0.35;
+    animation: floatOrb 10s infinite alternate ease-in-out;
+}
+
+.orb.one {
+    width: 280px;
+    height: 280px;
+    background: #5d3cff;
+    top: -100px;
+    left: -80px;
+}
+
+.orb.two {
+    width: 260px;
+    height: 260px;
+    background: #008cff;
+    right: -100px;
+    top: 25%;
+    animation-delay: -3s;
+}
+
+.orb.three {
+    width: 230px;
+    height: 230px;
+    background: #00d9b8;
+    left: 25%;
+    bottom: -100px;
+    animation-delay: -6s;
+}
+
+@keyframes floatOrb {
+    from {
+        transform: translate3d(0,0,0) scale(1);
+    }
+
+    to {
+        transform: translate3d(45px,-35px,0) scale(1.18);
+    }
+}
+
+/* =========================
+   APP
+========================= */
+
+.app {
+    position: relative;
+    z-index: 1;
+    width: 100%;
+    max-width: 1100px;
+    margin: auto;
+    padding: 24px 16px 50px;
+}
+
+/* =========================
+   HEADER
+========================= */
+
+.header {
+    text-align: center;
+    margin-bottom: 28px;
+}
+
+.logo {
+    width: 72px;
+    height: 72px;
+    margin: auto;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    border-radius: 22px;
+
+    background:
+        linear-gradient(
+            135deg,
+            rgba(77,163,255,.30),
+            rgba(155,108,255,.30)
+        );
+
+    border: 1px solid rgba(255,255,255,.15);
+
+    box-shadow:
+        0 0 40px rgba(77,163,255,.20),
+        inset 0 0 30px rgba(255,255,255,.04);
+
+    font-size: 34px;
+
+    animation:
+        logoFloat 3s ease-in-out infinite,
+        logoGlow 2s ease-in-out infinite alternate;
+}
+
+@keyframes logoFloat {
+    0%,100% {
+        transform: translateY(0);
+    }
+
+    50% {
+        transform: translateY(-7px);
+    }
+}
+
+@keyframes logoGlow {
+    from {
+        box-shadow:
+            0 0 25px rgba(77,163,255,.15);
+    }
+
+    to {
+        box-shadow:
+            0 0 50px rgba(155,108,255,.30);
+    }
+}
+
+.header h1 {
+    margin-top: 16px;
+    font-size: clamp(25px, 5vw, 38px);
+    font-weight: 800;
+
+    background:
+        linear-gradient(
+            90deg,
+            #ffffff,
+            #7fc9ff,
+            #b894ff,
+            #ffffff
+        );
+
+    background-size: 250% auto;
+
+    -webkit-background-clip: text;
+    background-clip: text;
+
+    color: transparent;
+
+    animation: gradientMove 5s linear infinite;
+}
+
+@keyframes gradientMove {
+    to {
+        background-position: 250% center;
+    }
+}
+
+.header p {
+    margin-top: 8px;
+    color: var(--muted);
+    font-size: 14px;
+}
+
+/* =========================
+   STATUS
+========================= */
+
+.status {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+
+    margin: 18px auto 0;
+
+    color: #aeb7ca;
+    font-size: 12px;
+}
+
+.status-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--green);
+
+    box-shadow: 0 0 12px var(--green);
+
+    animation: statusPulse 1.5s infinite;
+}
+
+@keyframes statusPulse {
+    0%,100% {
+        opacity: .5;
+        transform: scale(.8);
+    }
+
+    50% {
+        opacity: 1;
+        transform: scale(1.2);
+    }
+}
+
+/* =========================
+   CARDS
+========================= */
+
+.tools {
+    display: grid;
+
+    grid-template-columns:
+        repeat(2, minmax(0, 1fr));
+
+    gap: 18px;
+
+    align-items: start;
+}
+
+.card {
+    position: relative;
+
+    background:
+        linear-gradient(
+            145deg,
+            rgba(255,255,255,.07),
+            rgba(255,255,255,.025)
+        );
+
+    border: 1px solid var(--card-border);
+
+    border-radius: 24px;
+
+    padding: 20px;
+
+    backdrop-filter: blur(18px);
+    -webkit-backdrop-filter: blur(18px);
+
+    box-shadow:
+        0 20px 60px rgba(0,0,0,.30);
+
+    overflow: hidden;
+
+    transition:
+        transform .35s ease,
+        border-color .35s ease,
+        box-shadow .35s ease;
+
+    animation: cardAppear .7s ease both;
+}
+
+.card:nth-child(2) {
+    animation-delay: .12s;
+}
+
+@keyframes cardAppear {
+    from {
+        opacity: 0;
+        transform: translateY(25px) scale(.97);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+    }
+}
+
+.card:hover {
+    transform: translateY(-5px);
+
+    border-color:
+        rgba(120,180,255,.30);
+
+    box-shadow:
+        0 25px 70px rgba(0,0,0,.40),
+        0 0 30px rgba(77,163,255,.07);
+}
+
+/* moving shine */
+
+.card::before {
+    content: "";
+
+    position: absolute;
+
+    width: 180px;
+    height: 180px;
+
+    top: -100px;
+    right: -100px;
+
+    border-radius: 50%;
+
+    background:
+        radial-gradient(
+            circle,
+            rgba(77,163,255,.25),
+            transparent 70%
+        );
+
+    animation:
+        cardGlow 5s infinite alternate ease-in-out;
+}
+
+@keyframes cardGlow {
+    from {
+        transform: translate(0,0);
+    }
+
+    to {
+        transform: translate(-60px,60px);
+    }
+}
+
+/* =========================
+   CARD HEADER
+========================= */
+
+.card-header {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 13px;
+    margin-bottom: 20px;
+}
+
+.function-logo {
+    flex: 0 0 auto;
+
+    width: 62px;
+    height: 62px;
+
+    border-radius: 18px;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    font-size: 29px;
+
+    background:
+        linear-gradient(
+            135deg,
+            rgba(77,163,255,.20),
+            rgba(155,108,255,.18)
+        );
+
+    border: 1px solid rgba(255,255,255,.10);
+
+    animation: functionFloat 3.5s ease-in-out infinite;
+}
+
+@keyframes functionFloat {
+    0%,100% {
+        transform: translateY(0) rotate(0deg);
+    }
+
+    50% {
+        transform: translateY(-5px) rotate(2deg);
+    }
+}
+
+.groq-logo {
+    background:
+        linear-gradient(
+            135deg,
+            rgba(255,150,50,.18),
+            rgba(255,70,70,.12)
+        );
+}
+
+.compress-logo {
+    background:
+        linear-gradient(
+            135deg,
+            rgba(40,230,170,.18),
+            rgba(40,150,255,.15)
+        );
+}
+
+.card-title {
+    font-size: 20px;
+    font-weight: 750;
+}
+
+.card-subtitle {
+    color: var(--muted);
+    font-size: 12px;
+    margin-top: 4px;
+}
+
+/* =========================
+   FORM
+========================= */
+
+.label {
+    display: block;
+    color: #cdd4e2;
+    font-size: 12px;
+    margin: 14px 0 7px;
+}
+
+input[type="password"],
+input[type="text"] {
+
+    width: 100%;
+
+    height: 46px;
+
+    padding: 0 14px;
+
+    color: white;
+
+    background:
+        rgba(0,0,0,.22);
+
+    border:
+        1px solid rgba(255,255,255,.10);
+
+    border-radius: 13px;
+
+    outline: none;
+
+    transition:
+        border-color .25s,
+        box-shadow .25s;
+}
+
+input[type="password"]:focus,
+input[type="text"]:focus {
+
+    border-color:
+        rgba(77,163,255,.65);
+
+    box-shadow:
+        0 0 0 3px rgba(77,163,255,.10);
+}
+
+/* =========================
+   FILE INPUT
+========================= */
+
+.file-box {
+
+    position: relative;
+
+    width: 100%;
+
+    min-height: 95px;
+
+    border-radius: 16px;
+
+    border:
+        1px dashed
+        rgba(255,255,255,.18);
+
+    background:
+        rgba(0,0,0,.16);
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    text-align: center;
+
+    cursor: pointer;
+
+    transition:
+        background .25s,
+        border-color .25s,
+        transform .25s;
+}
+
+.file-box:hover {
+    background:
+        rgba(77,163,255,.07);
+
+    border-color:
+        rgba(77,163,255,.45);
+
+    transform: translateY(-2px);
+}
+
+.file-box input {
+    position: absolute;
+    inset: 0;
+
+    width: 100%;
+    height: 100%;
+
+    opacity: 0;
+
+    cursor: pointer;
+}
+
+.file-content {
+    pointer-events: none;
+}
+
+.file-icon {
+    font-size: 25px;
+    margin-bottom: 6px;
+}
+
+.file-text {
+    font-size: 13px;
+    color: #dfe5f0;
+}
+
+.file-name {
+    margin-top: 5px;
+    max-width: 100%;
+
+    padding: 0 12px;
+
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+
+    color: #70bcff;
+
+    font-size: 11px;
+}
+
+/* =========================
+   BUTTONS
+========================= */
+
+.buttons {
+    display: grid;
+
+    grid-template-columns:
+        repeat(2, minmax(0,1fr));
+
+    gap: 9px;
+
+    margin-top: 13px;
+}
+
+button {
+
+    min-height: 44px;
+
+    border: none;
+
+    border-radius: 13px;
+
+    color: white;
+
+    font-weight: 700;
+
+    font-size: 12px;
+
+    cursor: pointer;
+
+    transition:
+        transform .2s,
+        filter .2s,
+        opacity .2s;
+
+    position: relative;
+
+    overflow: hidden;
+}
+
+button::after {
+
+    content: "";
+
+    position: absolute;
+
+    top: 0;
+    left: -100%;
+
+    width: 60%;
+    height: 100%;
+
+    background:
+        linear-gradient(
+            90deg,
+            transparent,
+            rgba(255,255,255,.18),
+            transparent
+        );
+
+    transform: skewX(-20deg);
+
+    transition: left .6s;
+}
+
+button:hover::after {
+    left: 140%;
+}
+
+button:hover {
+    transform: translateY(-2px);
+    filter: brightness(1.08);
+}
+
+button:active {
+    transform: scale(.97);
+}
+
+button:disabled {
+    opacity: .45;
+    cursor: not-allowed;
+    transform: none;
+}
+
+.primary {
+    background:
+        linear-gradient(
+            135deg,
+            #318cff,
+            #7655ff
+        );
+
+    box-shadow:
+        0 8px 25px rgba(80,100,255,.22);
+}
+
+.secondary {
+    background:
+        rgba(255,255,255,.08);
+
+    border:
+        1px solid rgba(255,255,255,.10);
+}
+
+.green {
+    background:
+        linear-gradient(
+            135deg,
+            #13bd79,
+            #1d9fd0
+        );
+}
+
+/* =========================
+   RESULT
+========================= */
+
+.result {
+
+    margin-top: 14px;
+
+    padding: 13px;
+
+    min-height: 90px;
+
+    max-height: 260px;
+
+    overflow: auto;
+
+    white-space: pre-wrap;
+
+    word-break: break-word;
+
+    border-radius: 14px;
+
+    background:
+        rgba(0,0,0,.25);
+
+    border:
+        1px solid rgba(255,255,255,.07);
+
+    color: #d9e0ed;
+
+    font-size: 12px;
+
+    line-height: 1.65;
+}
+
+.result:empty::before {
+    content: "Result will appear here...";
+    color: #697286;
+}
+
+/* =========================
+   PROGRESS
+========================= */
+
+.progress-wrap {
+    margin-top: 14px;
+    display: none;
+}
+
+.progress-wrap.active {
+    display: block;
+}
+
+.progress-info {
+
+    display: flex;
+
+    justify-content: space-between;
+
+    font-size: 11px;
+
+    color: #aab3c4;
+
+    margin-bottom: 7px;
+}
+
+.progress {
+
+    width: 100%;
+    height: 7px;
+
+    border-radius: 99px;
+
+    overflow: hidden;
+
+    background:
+        rgba(255,255,255,.08);
+}
+
+.progress-bar {
+
+    width: 0%;
+
+    height: 100%;
+
+    border-radius: inherit;
+
+    background:
+        linear-gradient(
+            90deg,
+            #3ca7ff,
+            #9a66ff,
+            #35e0ff
+        );
+
+    background-size: 200% 100%;
+
+    animation:
+        progressMove 1.5s linear infinite;
+
+    transition: width .25s ease;
+}
+
+@keyframes progressMove {
+    to {
+        background-position: 200% 0;
+    }
+}
+
+/* =========================
+   FILE INFO
+========================= */
+
+.info-grid {
+
+    display: grid;
+
+    grid-template-columns:
+        repeat(2, 1fr);
+
+    gap: 8px;
+
+    margin-top: 12px;
+}
+
+.info {
+
+    padding: 10px;
+
+    border-radius: 12px;
+
+    background:
+        rgba(255,255,255,.045);
+
+    border:
+        1px solid rgba(255,255,255,.06);
+}
+
+.info-label {
+    color: #7f899d;
+    font-size: 10px;
+}
+
+.info-value {
+    color: #e5ebf6;
+    font-size: 12px;
+    font-weight: 700;
+    margin-top: 3px;
+}
+
+/* =========================
+   MESSAGE
+========================= */
+
+.message {
+
+    display: none;
+
+    margin-top: 12px;
+
+    padding: 11px 12px;
+
+    border-radius: 12px;
+
+    font-size: 11px;
+
+    line-height: 1.5;
+}
+
+.message.show {
+    display: block;
+}
+
+.message.error {
+
+    color: #ff9eaa;
+
+    background:
+        rgba(255,70,90,.08);
+
+    border:
+        1px solid rgba(255,70,90,.15);
+}
+
+.message.success {
+
+    color: #82efbb;
+
+    background:
+        rgba(40,220,140,.07);
+
+    border:
+        1px solid rgba(40,220,140,.14);
+}
+
+/* =========================
+   FOOTER
+========================= */
+
+.footer {
+
+    text-align: center;
+
+    margin-top: 28px;
+
+    color: #60697b;
+
+    font-size: 11px;
+}
+
+/* =========================
+   MOBILE
+========================= */
+
+@media (max-width: 700px) {
+
+    .app {
+        padding:
+            18px 11px 35px;
+    }
+
+    .tools {
+        grid-template-columns:
+            repeat(2, minmax(0, 1fr));
+
+        gap: 9px;
+    }
+
+    .card {
+        padding: 13px;
+        border-radius: 18px;
+    }
+
+    .card-header {
+        gap: 8px;
+        margin-bottom: 14px;
+    }
+
+    .function-logo {
+        width: 45px;
+        height: 45px;
+        border-radius: 13px;
+        font-size: 21px;
+    }
+
+    .card-title {
+        font-size: 14px;
+    }
+
+    .card-subtitle {
+        font-size: 9px;
+    }
+
+    .label {
+        font-size: 9px;
+        margin-top: 9px;
+    }
+
+    input[type="password"],
+    input[type="text"] {
+        height: 38px;
+        padding: 0 9px;
+        font-size: 10px;
+        border-radius: 10px;
+    }
+
+    .file-box {
+        min-height: 76px;
+        border-radius: 12px;
+    }
+
+    .file-icon {
+        font-size: 20px;
+    }
+
+    .file-text {
+        font-size: 9px;
+    }
+
+    .file-name {
+        font-size: 8px;
+    }
+
+    .buttons {
+        gap: 5px;
+        margin-top: 8px;
+    }
+
+    button {
+        min-height: 36px;
+        border-radius: 9px;
+        font-size: 9px;
+        padding: 4px;
+    }
+
+    .result {
+        min-height: 70px;
+        max-height: 180px;
+        padding: 8px;
+        font-size: 9px;
+    }
+
+    .info {
+        padding: 7px;
+    }
+
+    .info-label {
+        font-size: 8px;
+    }
+
+    .info-value {
+        font-size: 9px;
+    }
+}
+
+@media (max-width: 360px) {
+
+    .tools {
+        gap: 6px;
+    }
+
+    .card {
+        padding: 10px;
+    }
+
+    .card-title {
+        font-size: 12px;
+    }
+
+    .function-logo {
+        width: 40px;
+        height: 40px;
+        font-size: 18px;
+    }
+}
+
+</style>
 </head>
-<body class="bg-gray-900 text-gray-100 min-h-screen flex flex-col items-center p-4">
-    <div class="w-full max-w-2xl bg-gray-800 rounded-2xl shadow-2xl p-6 border border-gray-700">
-        <header class="text-center mb-6">
-            <h1 class="text-2xl font-bold text-indigo-400">🎬 Video & Audio Toolbox</h1>
-            <p class="text-sm text-gray-400 mt-1">Groq Whisper API (SRT) & Browser FFmpeg Compressor</p>
-        </header>
 
-        <!-- Settings Section -->
-        <div class="mb-6 bg-gray-900 p-4 rounded-xl border border-gray-700">
-            <label class="block text-sm font-medium text-gray-300 mb-2">🔑 Groq API Key:</label>
-            <input type="password" id="apiKey" placeholder="gsk_..." class="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-indigo-500 text-sm">
+<body>
+
+<div class="background">
+    <div class="orb one"></div>
+    <div class="orb two"></div>
+    <div class="orb three"></div>
+</div>
+
+<main class="app">
+
+    <!-- HEADER -->
+
+    <header class="header">
+
+        <div class="logo">
+            🎬
         </div>
 
-        <!-- Tab Navigation -->
-        <div class="flex border-b border-gray-700 mb-6">
-            <button id="tabSrtBtn" onclick="switchTab('srt')" class="flex-1 py-2 text-center font-medium border-b-2 border-indigo-500 text-indigo-400 transition">📝 SRT Generator</button>
-            <button id="tabCompBtn" onclick="switchTab('comp')" class="flex-1 py-2 text-center font-medium border-b-2 border-transparent text-gray-400 hover:text-gray-200 transition">📉 Video Compressor</button>
+        <h1>Media Toolkit</h1>
+
+        <p>
+            AI Transcription & Smart Compression
+        </p>
+
+        <div class="status">
+            <span class="status-dot"></span>
+            Ready to use
         </div>
 
-        <!-- TAB 1: SRT GENERATOR -->
-        <div id="srtTab" class="space-y-4">
-            <div>
-                <label class="block text-sm font-medium text-gray-300 mb-2">Audio/Video ဖိုင်တင်ရန် (.mp3, .mp4, .wav, .m4a)</label>
-                <input type="file" id="mediaFile" accept="audio/*,video/*" class="w-full text-sm text-gray-400 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-indigo-600 file:text-white hover:file:bg-indigo-500 cursor-pointer">
+    </header>
+
+
+    <!-- TOOLS -->
+
+    <section class="tools">
+
+
+        <!-- =====================
+             GROQ
+        ====================== -->
+
+        <article class="card">
+
+            <div class="card-header">
+
+                <div class="function-logo groq-logo">
+                    🎙️
+                </div>
+
+                <div>
+                    <div class="card-title">
+                        Groq Transcript
+                    </div>
+
+                    <div class="card-subtitle">
+                        Audio / Video → SRT
+                    </div>
+                </div>
+
             </div>
-            <button onclick="generateSrt()" id="srtBtn" class="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-medium py-2.5 rounded-lg transition shadow-lg">🚀 SRT ဖိုင် စတင်ထုတ်မည်</button>
-            <div id="srtStatus" class="text-sm text-center text-gray-400"></div>
-            <div id="srtResult" class="hidden">
-                <a id="downloadSrtLink" class="block text-center bg-green-600 hover:bg-green-500 text-white font-medium py-2.5 rounded-lg transition shadow-lg">📥 Download SRT File</a>
+
+
+            <label class="label">
+                Groq API Key
+            </label>
+
+            <input
+                id="groqKey"
+                type="password"
+                placeholder="gsk_..."
+                autocomplete="off"
+            >
+
+
+            <label class="label">
+                Audio / Video File
+            </label>
+
+            <label class="file-box">
+
+                <input
+                    id="transcriptFile"
+                    type="file"
+                    accept="audio/*,video/*"
+                >
+
+                <div class="file-content">
+
+                    <div class="file-icon">
+                        📁
+                    </div>
+
+                    <div class="file-text">
+                        Choose audio or video
+                    </div>
+
+                    <div
+                        id="transcriptFileName"
+                        class="file-name"
+                    >
+                    </div>
+
+                </div>
+
+            </label>
+
+
+            <div class="buttons">
+
+                <button
+                    id="transcribeBtn"
+                    class="primary"
+                    onclick="generateSrt()"
+                >
+                    🎙️ Generate SRT
+                </button>
+
+                <button
+                    id="copyBtn"
+                    class="secondary"
+                    onclick="copyTranscript()"
+                >
+                    📋 Copy
+                </button>
+
             </div>
-        </div>
 
-        <!-- TAB 2: VIDEO COMPRESSOR -->
-        <div id="compTab" class="space-y-4 hidden">
-            <div>
-                <label class="block text-sm font-medium text-gray-300 mb-2">ဗီဒီယိုဖိုင်တင်ရန် (.mp4, .mov, .webm)</label>
-                <input type="file" id="compFile" accept="video/*" class="w-full text-sm text-gray-400 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-indigo-600 file:text-white hover:file:bg-indigo-500 cursor-pointer">
+
+            <div class="progress-wrap" id="groqProgress">
+
+                <div class="progress-info">
+
+                    <span id="groqStatus">
+                        Processing...
+                    </span>
+
+                    <span id="groqPercent">
+                        0%
+                    </span>
+
+                </div>
+
+                <div class="progress">
+                    <div
+                        id="groqProgressBar"
+                        class="progress-bar"
+                    ></div>
+                </div>
+
             </div>
-            <div>
-                <label class="block text-sm font-medium text-gray-300 mb-2">Compression အရည်အသွေး (CRF: 20-35): <span id="crfVal">28</span></label>
-                <input type="range" id="crfRange" min="20" max="35" value="28" oninput="document.getElementById('crfVal').innerText = this.value" class="w-full accent-indigo-500">
+
+
+            <div
+                id="groqMessage"
+                class="message"
+            ></div>
+
+
+            <div
+                id="transcriptResult"
+                class="result"
+            ></div>
+
+
+            <div class="buttons">
+
+                <button
+                    id="downloadSrtBtn"
+                    class="green"
+                    onclick="downloadSrt()"
+                    disabled
+                >
+                    ⬇️ Download SRT
+                </button>
+
+                <button
+                    class="secondary"
+                    onclick="clearTranscript()"
+                >
+                    🗑️ Clear
+                </button>
+
             </div>
-            <button onclick="compressVideo()" id="compBtn" class="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-medium py-2.5 rounded-lg transition shadow-lg">📉 ဖိုင်ဆိုဒ် စတင်ချုံ့မည်</button>
-            <div id="compStatus" class="text-sm text-center text-gray-400"></div>
-            <div id="compResult" class="hidden">
-                <a id="downloadCompLink" class="block text-center bg-green-600 hover:bg-green-500 text-white font-medium py-2.5 rounded-lg transition shadow-lg">📥 Download Compressed Video</a>
+
+        </article>
+
+
+
+        <!-- =====================
+             COMPRESSOR
+        ====================== -->
+
+        <article class="card">
+
+            <div class="card-header">
+
+                <div class="function-logo compress-logo">
+                    📦
+                </div>
+
+                <div>
+                    <div class="card-title">
+                        Smart Compressor
+                    </div>
+
+                    <div class="card-subtitle">
+                        Reduce Audio / Video Size
+                    </div>
+                </div>
+
             </div>
-        </div>
-    </div>
 
-    <script>
-        function switchTab(tab) {
-            if(tab === 'srt') {
-                document.getElementById('srtTab').classList.remove('hidden');
-                document.getElementById('compTab').classList.add('hidden');
-                document.getElementById('tabSrtBtn').className = "flex-1 py-2 text-center font-medium border-b-2 border-indigo-500 text-indigo-400 transition";
-                document.getElementById('tabCompBtn').className = "flex-1 py-2 text-center font-medium border-b-2 border-transparent text-gray-400 hover:text-gray-200 transition";
-            } else {
-                document.getElementById('compTab').classList.remove('hidden');
-                document.getElementById('srtTab').classList.add('hidden');
-                document.getElementById('tabCompBtn').className = "flex-1 py-2 text-center font-medium border-b-2 border-indigo-500 text-indigo-400 transition";
-                document.getElementById('tabSrtBtn').className = "flex-1 py-2 text-center font-medium border-b-2 border-transparent text-gray-400 hover:text-gray-200 transition";
-            }
-        }
 
-        function formatTime(seconds) {
-            const hours = Math.floor(seconds / 3600);
-            const minutes = Math.floor((seconds % 3600) / 60);
-            const secs = Math.floor(seconds % 60);
-            const milliseconds = Math.floor((seconds - Math.floor(seconds)) * 1000);
-            return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(secs).padStart(2, '0')},${String(milliseconds).padStart(3, '0')}`;
-        }
+            <label class="label">
+                Audio / Video File
+            </label>
 
-        async function generateSrt() {
-            const apiKey = document.getElementById('apiKey').value.trim();
-            const fileInput = document.getElementById('mediaFile');
-            const statusDiv = document.getElementById('srtStatus');
-            const resultDiv = document.getElementById('srtResult');
+            <label class="file-box">
 
-            if (!apiKey) {
-                alert('ကျေးဇူးပြု၍ Groq API Key ထည့်ပါ။');
-                return;
-            }
-            if (fileInput.files.length === 0) {
-                alert('ကျေးဇူးပြု၍ ဖိုင်တစ်ခု ရွေးပါ။');
-                return;
-            }
+                <input
+                    id="compressFile"
+                    type="file"
+                    accept="audio/*,video/*"
+                >
 
-            const file = fileInput.files[0];
-            statusDiv.innerText = '🔄 Groq API သို့ ပေးပို့နေပါပြီ...';
-            resultDiv.classList.add('hidden');
+                <div class="file-content">
 
-            const formData = new FormData();
-            formData.append('file', file);
-            formData.append('model', 'whisper-large-v3-turbo');
-            formData.append('response_format', 'verbose_json');
-            formData.append('timestamp_granularities[]', 'segment');
+                    <div class="file-icon">
+                        📦
+                    </div>
 
-            try {
-                const response = await fetch('https://api.groq.com/openai/v1/audio/transcriptions', {
-                    method: 'POST',
+                    <div class="file-text">
+                        Choose audio or video
+                    </div>
+
+                    <div
+                        id="compressFileName"
+                        class="file-name"
+                    >
+                    </div>
+
+                </div>
+
+            </label>
+
+
+            <div class="info-grid">
+
+                <div class="info">
+
+                    <div class="info-label">
+                        Original
+                    </div>
+
+                    <div
+                        id="originalSize"
+                        class="info-value"
+                    >
+                        —
+                    </div>
+
+                </div>
+
+
+                <div class="info">
+
+                    <div class="info-label">
+                        Output
+                    </div>
+
+                    <div
+                        id="outputSize"
+                        class="info-value"
+                    >
+                        —
+                    </div>
+
+                </div>
+
+
+                <div class="info">
+
+                    <div class="info-label">
+                        Reduction
+                    </div>
+
+                    <div
+                        id="reduction"
+                        class="info-value"
+                    >
+                        —
+                    </div>
+
+                </div>
+
+
+                <div class="info">
+
+                    <div class="info-label">
+                        Status
+                    </div>
+
+                    <div
+                        id="compressStatus"
+                        class="info-value"
+                    >
+                        Ready
+                    </div>
+
+                </div>
+
+            </div>
+
+
+            <div
+                class="progress-wrap"
+                id="compressProgress"
+            >
+
+                <div class="progress-info">
+
+                    <span id="compressText">
+                        Compressing...
+                    </span>
+
+                    <span id="compressPercent">
+                        0%
+                    </span>
+
+                </div>
+
+                <div class="progress">
+                    <div
+                        id="compressProgressBar"
+                        class="progress-bar"
+                    ></div>
+                </div>
+
+            </div>
+
+
+            <div
+                id="compressMessage"
+                class="message"
+            ></div>
+
+
+            <div class="buttons">
+
+                <button
+                    id="compressBtn"
+                    class="primary"
+                    onclick="compressMedia()"
+                >
+                    ⚡ Compress
+                </button>
+
+                <button
+                    class="secondary"
+                    onclick="clearCompressor()"
+                >
+                    🗑️ Clear
+                </button>
+
+            </div>
+
+
+            <div class="buttons">
+
+                <button
+                    id="saveCompressedBtn"
+                    class="green"
+                    onclick="saveCompressed()"
+                    disabled
+                >
+                    💾 Save Output
+                </button>
+
+            </div>
+
+        </article>
+
+    </section>
+
+
+    <footer class="footer">
+        Media Toolkit • Groq AI + Smart Compression
+    </footer>
+
+</main>
+
+
+<script>
+
+/* ==========================================
+   GLOBAL STATE
+========================================== */
+
+let currentSrt = "";
+let compressedBlob = null;
+let compressedFileName = "";
+
+
+
+/* ==========================================
+   FILE NAME DISPLAY
+========================================== */
+
+document
+    .getElementById("transcriptFile")
+    .addEventListener("change", function () {
+
+        const file = this.files[0];
+
+        document.getElementById(
+            "transcriptFileName"
+        ).textContent =
+            file
+                ? `${file.name} • ${formatBytes(file.size)}`
+                : "";
+
+    });
+
+
+document
+    .getElementById("compressFile")
+    .addEventListener("change", function () {
+
+        const file = this.files[0];
+
+        document.getElementById(
+            "compressFileName"
+        ).textContent =
+            file
+                ? `${file.name} • ${formatBytes(file.size)}`
+                : "";
+
+        document.getElementById(
+            "originalSize"
+        ).textContent =
+            file
+                ? formatBytes(file.size)
+                : "—";
+
+        document.getElementById(
+            "outputSize"
+        ).textContent = "—";
+
+        document.getElementById(
+            "reduction"
+        ).textContent = "—";
+
+        document.getElementById(
+            "compressStatus"
+        ).textContent = "Ready";
+
+    });
+
+
+
+/* ==========================================
+   FORMAT BYTES
+========================================== */
+
+function formatBytes(bytes) {
+
+    if (!Number.isFinite(bytes) || bytes <= 0) {
+        return "0 B";
+    }
+
+    const units = [
+        "B",
+        "KB",
+        "MB",
+        "GB"
+    ];
+
+    const index =
+        Math.floor(
+            Math.log(bytes) /
+            Math.log(1024)
+        );
+
+    const safeIndex =
+        Math.min(index, units.length - 1);
+
+    return (
+        bytes /
+        Math.pow(1024, safeIndex)
+    ).toFixed(
+        safeIndex === 0 ? 0 : 2
+    ) + " " +
+    units[safeIndex];
+}
+
+
+
+/* ==========================================
+   MESSAGE
+========================================== */
+
+function showMessage(
+    elementId,
+    text,
+    type
+) {
+
+    const el =
+        document.getElementById(elementId);
+
+    el.textContent = text;
+
+    el.className =
+        "message show " +
+        (type || "error");
+}
+
+
+
+/* ==========================================
+   GROQ PROGRESS
+========================================== */
+
+function setGroqProgress(
+    percent,
+    text
+) {
+
+    document
+        .getElementById("groqProgress")
+        .classList.add("active");
+
+    document
+        .getElementById("groqProgressBar")
+        .style.width =
+            percent + "%";
+
+    document
+        .getElementById("groqPercent")
+        .textContent =
+            percent + "%";
+
+    document
+        .getElementById("groqStatus")
+        .textContent =
+            text;
+}
+
+
+
+/* ==========================================
+   GROQ TRANSCRIPTION
+========================================== */
+
+async function generateSrt() {
+
+    const key =
+        document
+            .getElementById("groqKey")
+            .value
+            .trim();
+
+    const file =
+        document
+            .getElementById("transcriptFile")
+            .files[0];
+
+    const button =
+        document.getElementById(
+            "transcribeBtn"
+        );
+
+    const result =
+        document.getElementById(
+            "transcriptResult"
+        );
+
+    if (!key) {
+
+        showMessage(
+            "groqMessage",
+            "Groq API Key ထည့်ပေးပါ။",
+            "error"
+        );
+
+        return;
+    }
+
+    if (!file) {
+
+        showMessage(
+            "groqMessage",
+            "Audio သို့မဟုတ် Video file ရွေးပေးပါ။",
+            "error"
+        );
+
+        return;
+    }
+
+
+    button.disabled = true;
+
+    document.getElementById(
+        "downloadSrtBtn"
+    ).disabled = true;
+
+    result.textContent = "";
+
+    currentSrt = "";
+
+
+    try {
+
+        showMessage(
+            "groqMessage",
+            "",
+            "success"
+        );
+
+        setGroqProgress(
+            15,
+            "Preparing file..."
+        );
+
+
+        const formData =
+            new FormData();
+
+        formData.append(
+            "file",
+            file
+        );
+
+        formData.append(
+            "model",
+            "whisper-large-v3-turbo"
+        );
+
+        formData.append(
+            "response_format",
+            "verbose_json"
+        );
+
+        formData.append(
+            "timestamp_granularities[]",
+            "segment"
+        );
+
+
+        setGroqProgress(
+            30,
+            "Uploading..."
+        );
+
+
+        const response =
+            await fetch(
+                "https://api.groq.com/openai/v1/audio/transcriptions",
+                {
+                    method: "POST",
+
                     headers: {
-                        'Authorization': `Bearer ${apiKey}`
+                        "Authorization":
+                            "Bearer " + key
                     },
+
                     body: formData
-                });
-
-                if (!response.ok) {
-                    throw new Error(`API Error: ${response.statusText}`);
                 }
+            );
 
-                const data = await response.json();
-                let srtContent = '';
 
-                if (data.segments) {
-                    data.segments.forEach((seg, index) => {
-                        const start = formatTime(seg.start);
-                        const end = formatTime(seg.end);
-                        const text = seg.text.trim();
-                        srtContent += `${index + 1}\n${start} --> ${end}\n${text}\n\n`;
-                    });
-                }
+        setGroqProgress(
+            75,
+            "Transcribing..."
+        );
 
-                const blob = new Blob([srtContent], { type: 'text/plain;charset=utf-8' });
-                const url = URL.createObjectURL(blob);
-                const downloadLink = document.getElementById('downloadSrtLink');
-                downloadLink.href = url;
-                downloadLink.download = 'output.srt';
 
-                statusDiv.innerText = '✅ SRT ဖိုင် အောင်မြင်စွာ ထွက်လာပါပြီ!';
-                resultDiv.classList.remove('hidden');
-            } catch (err) {
-                statusDiv.innerText = `❌ Error ဖြစ်ပေါ်သည်: ${err.message}`;
-            }
+        let data;
+
+        try {
+
+            data =
+                await response.json();
+
+        } catch {
+
+            throw new Error(
+                "Groq server က valid response မပေးပါ။"
+            );
+
         }
 
-        let ffmpegInstance = null;
-        async function compressVideo() {
-            const fileInput = document.getElementById('compFile');
-            const statusDiv = document.getElementById('compStatus');
-            const resultDiv = document.getElementById('compResult');
-            const crf = document.getElementById('crfRange').value;
 
-            if (fileInput.files.length === 0) {
-                alert('ကျေးဇူးပြု၍ ဗီဒီယိုဖိုင် ရွေးပါ။');
+        if (!response.ok) {
+
+            const errorText =
+                data?.error?.message ||
+                "Groq API request failed.";
+
+            throw new Error(
+                errorText
+            );
+        }
+
+
+        if (
+            !data ||
+            !Array.isArray(data.segments)
+        ) {
+
+            throw new Error(
+                "Timestamp segments မရရှိပါ။"
+            );
+        }
+
+
+        currentSrt =
+            createSrt(
+                data.segments
+            );
+
+
+        if (!currentSrt.trim()) {
+
+            throw new Error(
+                "Transcript empty ဖြစ်နေပါတယ်။"
+            );
+        }
+
+
+        result.textContent =
+            currentSrt;
+
+
+        document.getElementById(
+            "downloadSrtBtn"
+        ).disabled = false;
+
+
+        setGroqProgress(
+            100,
+            "Completed"
+        );
+
+
+        showMessage(
+            "groqMessage",
+            "Transcript အောင်မြင်စွာထုတ်ပြီးပါပြီ။",
+            "success"
+        );
+
+    }
+
+    catch (error) {
+
+        console.error(
+            "Groq error:",
+            error
+        );
+
+        setGroqProgress(
+            0,
+            "Failed"
+        );
+
+        showMessage(
+            "groqMessage",
+            "Error: " +
+            (
+                error.message ||
+                "Unknown error"
+            ),
+            "error"
+        );
+
+    }
+
+    finally {
+
+        button.disabled = false;
+    }
+}
+
+
+
+/* ==========================================
+   SRT CREATOR
+========================================== */
+
+function createSrt(segments) {
+
+    let output = "";
+
+    segments.forEach(
+        (segment, index) => {
+
+            const start =
+                Number(
+                    segment.start
+                ) || 0;
+
+            const end =
+                Number(
+                    segment.end
+                ) || start + 1;
+
+            const text =
+                String(
+                    segment.text || ""
+                ).trim();
+
+
+            if (!text) {
                 return;
             }
 
-            const file = fileInput.files[0];
-            statusDiv.innerText = '⏳ FFmpeg ကို စတင်ဖွင့်နေပါပြီ (ခဏစောင့်ပါ)...';
-            resultDiv.classList.add('hidden');
 
-            try {
-                if (!ffmpegInstance) {
-                    const { FFmpeg } = FFmpegWASM;
-                    ffmpegInstance = new FFmpeg();
-                    
-                    const baseURL = 'https://unpkg.com/@ffmpeg/core@0.12.6/dist/umd';
-                    await ffmpegInstance.load({
-                        coreURL: `${baseURL}/ffmpeg-core.js`,
-                        wasmURL: `${baseURL}/ffmpeg-core.wasm`,
-                    });
-                }
-
-                statusDiv.innerText = '📉 ဗီဒီယိုဖိုင်ဆိုဒ် ချုံ့နေပါပြီ...';
-
-                const inputName = 'input.mp4';
-                const outputName = 'output_compressed.mp4';
-
-                await ffmpegInstance.writeFile(inputName, await FFmpegWASM.fetchFile(file));
-                await ffmpegInstance.exec(['-i', inputName, '-vcodec', 'libx264', '-crf', crf, outputName]);
-
-                const data = await ffmpegInstance.readFile(outputName);
-                const blob = new Blob([data.buffer], { type: 'video/mp4' });
-                const url = URL.createObjectURL(blob);
-
-                const downloadLink = document.getElementById('downloadCompLink');
-                downloadLink.href = url;
-                downloadLink.download = 'compressed_video.mp4';
-
-                statusDiv.innerText = '✅ ဖိုင်ဆိုဒ်ချုံ့ခြင်း ပြီးစီးပါပြီ!';
-                resultDiv.classList.remove('hidden');
-            } catch (err) {
-                statusDiv.innerText = `❌ Error ဖြစ်ပေါ်သည်: ${err.message}`;
-            }
+            output +=
+                `${index + 1}\n` +
+                `${srtTime(start)} --> ${srtTime(end)}\n` +
+                `${text}\n\n`;
         }
-    </script>
+    );
+
+    return output.trim();
+}
+
+
+
+/* ==========================================
+   SRT TIME
+========================================== */
+
+function srtTime(seconds) {
+
+    seconds =
+        Math.max(
+            0,
+            Number(seconds) || 0
+        );
+
+
+    const hours =
+        Math.floor(
+            seconds / 3600
+        );
+
+    const minutes =
+        Math.floor(
+            (seconds % 3600) / 60
+        );
+
+    const secs =
+        Math.floor(
+            seconds % 60
+        );
+
+    const milliseconds =
+        Math.floor(
+            (seconds % 1) * 1000
+        );
+
+
+    return (
+        String(hours).padStart(2,"0") +
+        ":" +
+        String(minutes).padStart(2,"0") +
+        ":" +
+        String(secs).padStart(2,"0") +
+        "," +
+        String(milliseconds).padStart(3,"0")
+    );
+}
+
+
+
+/* ==========================================
+   COPY
+========================================== */
+
+async function copyTranscript() {
+
+    const text =
+        document
+            .getElementById(
+                "transcriptResult"
+            )
+            .textContent
+            .trim();
+
+    if (!text) {
+
+        showMessage(
+            "groqMessage",
+            "Copy လုပ်စရာ transcript မရှိသေးပါ။",
+            "error"
+        );
+
+        return;
+    }
+
+
+    try {
+
+        await navigator.clipboard.writeText(
+            text
+        );
+
+        showMessage(
+            "groqMessage",
+            "Transcript ကို copy လုပ်ပြီးပါပြီ။",
+            "success"
+        );
+
+    }
+
+    catch {
+
+        showMessage(
+            "groqMessage",
+            "Copy မလုပ်နိုင်ပါ။",
+            "error"
+        );
+    }
+}
+
+
+
+/* ==========================================
+   DOWNLOAD SRT
+========================================== */
+
+function downloadSrt() {
+
+    if (!currentSrt) {
+        return;
+    }
+
+
+    const blob =
+        new Blob(
+            [currentSrt],
+            {
+                type:
+                    "application/x-subrip;charset=utf-8"
+            }
+        );
+
+
+    const url =
+        URL.createObjectURL(blob);
+
+
+    const a =
+        document.createElement("a");
+
+    a.href = url;
+
+    a.download =
+        "transcript.srt";
+
+    document.body.appendChild(a);
+
+    a.click();
+
+    a.remove();
+
+    setTimeout(
+        () => URL.revokeObjectURL(url),
+        1000
+    );
+}
+
+
+
+/* ==========================================
+   CLEAR TRANSCRIPT
+========================================== */
+
+function clearTranscript() {
+
+    document.getElementById(
+        "transcriptResult"
+    ).textContent = "";
+
+    document.getElementById(
+        "transcriptFile"
+    ).value = "";
+
+    document.getElementById(
+        "transcriptFileName"
+    ).textContent = "";
+
+    document.getElementById(
+        "groqKey"
+    ).value = "";
+
+    document.getElementById(
+        "downloadSrtBtn"
+    ).disabled = true;
+
+    document.getElementById(
+        "groqProgress"
+    ).classList.remove("active");
+
+    document.getElementById(
+        "groqMessage"
+    ).className = "message";
+
+    currentSrt = "";
+}
+
+
+
+/* ==========================================
+   COMPRESSOR
+========================================== */
+
+async function compressMedia() {
+
+    const file =
+        document
+            .getElementById(
+                "compressFile"
+            )
+            .files[0];
+
+
+    if (!file) {
+
+        showMessage(
+            "compressMessage",
+            "Audio သို့မဟုတ် Video file ရွေးပေးပါ။",
+            "error"
+        );
+
+        return;
+    }
+
+
+    /*
+       IMPORTANT:
+
+       ဒီနေရာမှာ Android Native
+       Compressor ကို ချိတ်မယ်။
+
+       Browser FFmpeg WASM ကို
+       အဓိက compressor အဖြစ်
+       မသုံးတော့ဘူး။
+    */
+
+
+    if (
+        window.Android &&
+        typeof window.Android.compressMedia ===
+        "function"
+    ) {
+
+        try {
+
+            document.getElementById(
+                "compressBtn"
+            ).disabled = true;
+
+
+            document.getElementById(
+                "compressStatus"
+            ).textContent =
+                "Processing";
+
+
+            document
+                .getElementById(
+                    "compressProgress"
+                )
+                .classList.add("active");
+
+
+            setCompressProgress(
+                10,
+                "Starting..."
+            );
+
+
+            window.Android.compressMedia(
+                file.name,
+                file.type,
+                file.size
+            );
+
+        }
+
+        catch (error) {
+
+            console.error(error);
+
+            document.getElementById(
+                "compressBtn"
+            ).disabled = false;
+
+            showMessage(
+                "compressMessage",
+                "Compressor start မလုပ်နိုင်ပါ။",
+                "error"
+            );
+        }
+
+        return;
+    }
+
+
+    showMessage(
+        "compressMessage",
+        "Android compressor မချိတ်ရသေးပါ။ Native Android module ထည့်ပြီးနောက် အလုပ်လုပ်ပါမယ်။",
+        "error"
+    );
+}
+
+
+
+/* ==========================================
+   COMPRESS PROGRESS
+========================================== */
+
+function setCompressProgress(
+    percent,
+    text
+) {
+
+    document
+        .getElementById(
+            "compressProgress"
+        )
+        .classList.add("active");
+
+
+    document.getElementById(
+        "compressProgressBar"
+    ).style.width =
+        percent + "%";
+
+
+    document.getElementById(
+        "compressPercent"
+    ).textContent =
+        percent + "%";
+
+
+    document.getElementById(
+        "compressText"
+    ).textContent =
+        text;
+}
+
+
+
+/* ==========================================
+   NATIVE → JAVASCRIPT
+========================================== */
+
+window.compressionProgress = function(
+    percent,
+    text
+) {
+
+    setCompressProgress(
+        percent,
+        text
+    );
+};
+
+
+window.compressionFinished = function(
+    outputPath,
+    originalSize,
+    outputSize
+) {
+
+    document.getElementById(
+        "compressBtn"
+    ).disabled = false;
+
+
+    document.getElementById(
+        "compressStatus"
+    ).textContent =
+        "Completed";
+
+
+    document.getElementById(
+        "outputSize"
+    ).textContent =
+        formatBytes(outputSize);
+
+
+    if (outputSize < originalSize) {
+
+        const percent =
+            (
+                1 -
+                outputSize /
+                originalSize
+            ) * 100;
+
+
+        document.getElementById(
+            "reduction"
+        ).textContent =
+            percent.toFixed(1) + "%";
+
+
+        showMessage(
+            "compressMessage",
+            "Compression အောင်မြင်ပြီး file size လျော့သွားပါပြီ။",
+            "success"
+        );
+
+    }
+
+    else {
+
+        document.getElementById(
+            "reduction"
+        ).textContent =
+            "0%";
+
+
+        showMessage(
+            "compressMessage",
+            "Output file က original ထက် မသေးပါ။",
+            "error"
+        );
+    }
+
+
+    setCompressProgress(
+        100,
+        "Completed"
+    );
+
+
+    compressedFileName =
+        outputPath;
+
+
+    document.getElementById(
+        "saveCompressedBtn"
+    ).disabled = false;
+};
+
+
+
+window.compressionFailed = function(
+    message
+) {
+
+    document.getElementById(
+        "compressBtn"
+    ).disabled = false;
+
+
+    document.getElementById(
+        "compressStatus"
+    ).textContent =
+        "Failed";
+
+
+    showMessage(
+        "compressMessage",
+        message ||
+        "Compression failed.",
+        "error"
+    );
+};
+
+
+
+/* ==========================================
+   SAVE COMPRESSED
+========================================== */
+
+function saveCompressed() {
+
+    if (
+        window.Android &&
+        typeof window.Android.saveCompressed ===
+        "function"
+    ) {
+
+        window.Android.saveCompressed();
+
+        return;
+    }
+
+
+    if (!compressedBlob) {
+
+        showMessage(
+            "compressMessage",
+            "Save လုပ်စရာ output မရှိသေးပါ။",
+            "error"
+        );
+
+        return;
+    }
+}
+
+
+
+/* ==========================================
+   CLEAR COMPRESSOR
+========================================== */
+
+function clearCompressor() {
+
+    document.getElementById(
+        "compressFile"
+    ).value = "";
+
+    document.getElementById(
+        "compressFileName"
+    ).textContent = "";
+
+    document.getElementById(
+        "originalSize"
+    ).textContent = "—";
+
+    document.getElementById(
+        "outputSize"
+    ).textContent = "—";
+
+    document.getElementById(
+        "reduction"
+    ).textContent = "—";
+
+    document.getElementById(
+        "compressStatus"
+    ).textContent = "Ready";
+
+    document.getElementById(
+        "compressProgress"
+    ).classList.remove("active");
+
+    document.getElementById(
+        "compressMessage"
+    ).className = "message";
+
+    document.getElementById(
+        "saveCompressedBtn"
+    ).disabled = true;
+
+    compressedBlob = null;
+    compressedFileName = "";
+}
+
+</script>
+
 </body>
-</html>
+    </html>
