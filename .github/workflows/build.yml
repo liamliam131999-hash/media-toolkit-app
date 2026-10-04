@@ -31,11 +31,14 @@ jobs:
 
       - name: Set up Android SDK
         uses: android-actions/setup-android@v4
-        with:
-          packages: |
-            platform-tools
-            platforms;android-36
-            build-tools;36.0.0
+
+
+      - name: Install Android SDK packages
+        run: |
+          yes | sdkmanager --licenses || true
+          sdkmanager "platform-tools"
+          sdkmanager "platforms;android-36"
+          sdkmanager "build-tools;36.0.0"
 
 
       - name: Set up Gradle
@@ -44,17 +47,26 @@ jobs:
           gradle-version: '9.6.0'
 
 
-      - name: Prepare Android project
+      - name: Prepare Android assets
         run: |
           mkdir -p app/src/main/assets
+          cp index.html app/src/main/assets/index.html
 
-          cp index.html \
-             app/src/main/assets/index.html
+
+      - name: Check project files
+        run: |
+          echo "===== Project ====="
+          find . -maxdepth 5 -type f | sort
 
 
       - name: Build Debug APK
         run: |
-          gradle assembleDebug --no-daemon
+          gradle assembleDebug --no-daemon --stacktrace
+
+
+      - name: Check APK
+        run: |
+          ls -lh app/build/outputs/apk/debug/
 
 
       - name: Upload APK
