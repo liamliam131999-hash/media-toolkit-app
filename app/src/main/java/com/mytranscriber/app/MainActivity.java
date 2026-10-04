@@ -2,24 +2,21 @@ package com.mytranscriber.app;
 
 import android.app.Activity;
 import android.content.Intent;
-import android.database.Cursor;
 import android.net.Uri;
 import android.os.Bundle;
 import android.os.Handler;
-import android.os.Looper;
-import android.provider.OpenableColumns;
 import android.webkit.JavascriptInterface;
-import android.webkit.WebChromeClient;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
-import android.widget.Toast;
 
 import androidx.annotation.NonNull;
-
+import androidx.appcompat.app.AppCompatActivity;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.MimeTypes;
+import androidx.media3.common.util.UnstableApi;
 import androidx.media3.transformer.AudioEncoderSettings;
+import androidx.media3.transformer.Composition;
 import androidx.media3.transformer.DefaultEncoderFactory;
 import androidx.media3.transformer.EditedMediaItem;
 import androidx.media3.transformer.ExportException;
@@ -33,94 +30,53 @@ import java.io.FileOutputStream;
 import java.io.InputStream;
 import java.io.OutputStream;
 
-import java.text.SimpleDateFormat;
+@UnstableApi
+public class MainActivity extends AppCompatActivity {
 
-import java.util.Date;
-import java.util.Locale;
-
-
-public class MainActivity extends Activity {
+    private static final int PICK_COMPRESS_FILE = 2001;
+    private static final int SAVE_COMPRESSED_FILE = 3001;
 
     private WebView webView;
 
-    private static final int PICK_COMPRESS_FILE = 5001;
-    private static final int SAVE_OUTPUT_FILE = 5002;
-
     private Uri selectedUri;
-
-    private long originalFileSize = 0;
-
     private File compressedFile;
+    private long originalFileSize;
 
     private Transformer transformer;
-
-    private final Handler handler =
-            new Handler(Looper.getMainLooper());
+    private final ProgressHolder progressHolder = new ProgressHolder();
+    private final Handler handler = new Handler();
 
     private boolean compressionRunning = false;
 
-
     @Override
     protected void onCreate(Bundle savedInstanceState) {
-
         super.onCreate(savedInstanceState);
-
-        setupWebView();
-    }
-
-
-    private void setupWebView() {
 
         webView = new WebView(this);
 
-        setContentView(webView);
-
-        WebSettings settings =
-                webView.getSettings();
+        WebSettings settings = webView.getSettings();
 
         settings.setJavaScriptEnabled(true);
-
         settings.setDomStorageEnabled(true);
-
         settings.setAllowFileAccess(true);
-
         settings.setAllowContentAccess(true);
-
         settings.setMediaPlaybackRequiresUserGesture(false);
 
-        settings.setBuiltInZoomControls(false);
-
-        settings.setDisplayZoomControls(false);
-
-        webView.setWebViewClient(
-                new WebViewClient()
-        );
-
-        webView.setWebChromeClient(
-                new WebChromeClient()
-        );
-
+        webView.setWebViewClient(new WebViewClient());
 
         webView.addJavascriptInterface(
                 new AndroidBridge(),
                 "Android"
         );
 
+        setContentView(webView);
 
         webView.loadUrl(
                 "file:///android_asset/index.html"
         );
     }
 
-
-    /*
-     * ==========================================
-     * ANDROID BRIDGE
-     * ==========================================
-     */
-
     public class AndroidBridge {
-
 
         @JavascriptInterface
         public void compressMedia(
@@ -129,92 +85,52 @@ public class MainActivity extends Activity {
                 long fileSize
         ) {
 
-            runOnUiThread(() -> {
+            if (compressionRunning) {
+                return;
+            }
 
-                if (compressionRunning) {
-
-                    sendFailure(
-                            "Compression တစ်ခု အလုပ်လုပ်နေပြီးသားပါ။"
-                    );
-
-                    return;
-                }
-
-
-                /*
-                 * WebView File object ကို Native Android
-                 * က တိုက်ရိုက်မရနိုင်တဲ့အတွက် Native picker
-                 * ကို ဖွင့်ပေးမယ်။
-                 *
-                 * User က Compress နှိပ်တဲ့အချိန်
-                 * file တစ်ခါပြန်ရွေးရပါမယ်။
-                 */
-
-                openNativeFilePicker();
-
-            });
+            openFilePicker();
         }
-
 
         @JavascriptInterface
         public void saveCompressed() {
 
-            runOnUiThread(() -> {
+            if (compressedFile == null ||
+                    !compressedFile.exists()) {
 
-                if (
-                        compressedFile == null ||
-                        !compressedFile.exists()
-                ) {
+                runJavascript(
+                        "window.compressionFailed(" +
+                        "'Compressed file မရှိသေးပါ။'"
+                        + ");"
+                );
 
-                    sendFailure(
-                            "Save လုပ်စရာ compressed output မရှိသေးပါ။"
+                return;
+            }
+
+            Intent intent =
+                    new Intent(
+                            Intent.ACTION_CREATE_DOCUMENT
                     );
 
-                    return;
-                }
+            intent.addCategory(
+                    Intent.CATEGORY_OPENABLE
+            );
 
+            intent.setType("audio/mp4");
 
-                Intent intent =
-                        new Intent(
-                                Intent.ACTION_CREATE_DOCUMENT
-                        );
+            intent.putExtra(
+                    Intent.EXTRA_TITLE,
+                    "compressed_audio.mp4"
+            );
 
-                intent.addCategory(
-                        Intent.CATEGORY_OPENABLE
-                );
-
-                intent.setType(
-                        "video/mp4"
-                );
-
-
-                String fileName =
-                        compressedFile.getName();
-
-
-                intent.putExtra(
-                        Intent.EXTRA_TITLE,
-                        fileName
-                );
-
-
-                startActivityForResult(
-                        intent,
-                        SAVE_OUTPUT_FILE
-                );
-
-            });
+            startActivityForResult(
+                    intent,
+                    SAVE_COMPRESSED_FILE
+            );
         }
     }
 
-
-    /*
-     * ==========================================
-     * NATIVE FILE PICKER
-     * ==========================================
-     */
-
-    private void openNativeFilePicker() {
+    private void openFilePicker() {
 
         Intent intent =
                 new Intent(
@@ -225,31 +141,21 @@ public class MainActivity extends Activity {
                 Intent.CATEGORY_OPENABLE
         );
 
-        intent.setType(
-                "*/*"
-        );
+        intent.setType("*/*");
 
         intent.putExtra(
                 Intent.EXTRA_MIME_TYPES,
-                new String[] {
+                new String[]{
                         "audio/*",
                         "video/*"
                 }
         );
-
 
         startActivityForResult(
                 intent,
                 PICK_COMPRESS_FILE
         );
     }
-
-
-    /*
-     * ==========================================
-     * ACTIVITY RESULT
-     * ==========================================
-     */
 
     @Override
     protected void onActivityResult(
@@ -264,665 +170,395 @@ public class MainActivity extends Activity {
                 data
         );
 
+        if (resultCode != Activity.RESULT_OK ||
+                data == null) {
 
-        if (
-                requestCode ==
-                PICK_COMPRESS_FILE
-        ) {
+            return;
+        }
 
-            if (
-                    resultCode != RESULT_OK ||
-                    data == null ||
-                    data.getData() == null
-            ) {
+        if (requestCode == PICK_COMPRESS_FILE) {
 
-                sendFailure(
-                        "File မရွေးရသေးပါ။"
-                );
+            selectedUri = data.getData();
 
+            if (selectedUri == null) {
                 return;
             }
 
+            startCompression();
 
-            selectedUri =
-                    data.getData();
+        } else if (
+                requestCode == SAVE_COMPRESSED_FILE
+        ) {
 
+            Uri destinationUri = data.getData();
 
-            try {
-
-                getContentResolver()
-                        .takePersistableUriPermission(
-                                selectedUri,
-                                Intent.FLAG_GRANT_READ_URI_PERMISSION
-                        );
-
-            } catch (Exception ignored) {
+            if (destinationUri != null) {
+                saveFile(destinationUri);
             }
+        }
+    }
 
+    private void startCompression() {
+
+        try {
 
             originalFileSize =
                     getFileSize(selectedUri);
 
+            if (originalFileSize <= 0) {
 
-            startCompression();
-
-            return;
-        }
-
-
-        if (
-                requestCode ==
-                SAVE_OUTPUT_FILE
-        ) {
-
-            if (
-                    resultCode != RESULT_OK ||
-                    data == null ||
-                    data.getData() == null
-            ) {
+                runJavascript(
+                        "window.compressionFailed(" +
+                        "'File size မဖတ်နိုင်ပါ။'"
+                        + ");"
+                );
 
                 return;
             }
 
+            compressionRunning = true;
 
-            saveOutputToUri(
-                    data.getData()
-            );
-        }
-    }
-
-
-    /*
-     * ==========================================
-     * START COMPRESSION
-     * ==========================================
-     */
-
-    private void startCompression() {
-
-        if (selectedUri == null) {
-
-            sendFailure(
-                    "Input file မရှိပါ။"
+            runJavascript(
+                    "window.compressionProgress(" +
+                    "1," +
+                    "'Compression စတင်နေပါပြီ...'" +
+                    ");"
             );
 
-            return;
-        }
+            File outputDirectory =
+                    new File(
+                            getExternalFilesDir(null),
+                            "compressed"
+                    );
 
+            if (!outputDirectory.exists()) {
+                outputDirectory.mkdirs();
+            }
 
-        compressionRunning = true;
+            compressedFile =
+                    new File(
+                            outputDirectory,
+                            "compressed_" +
+                            System.currentTimeMillis() +
+                            ".mp4"
+                    );
 
+            AudioEncoderSettings audioSettings =
+                    new AudioEncoderSettings.Builder()
+                            .setBitrate(64_000)
+                            .build();
 
-        sendProgress(
-                5,
-                "Preparing..."
-        );
+            DefaultEncoderFactory encoderFactory =
+                    new DefaultEncoderFactory.Builder(this)
+                            .setEnableFallback(true)
+                            .setRequestedAudioEncoderSettings(
+                                    audioSettings
+                            )
+                            .build();
 
+            transformer =
+                    new Transformer.Builder(this)
+                            .setEncoderFactory(
+                                    encoderFactory
+                            )
+                            .setAudioMimeType(
+                                    MimeTypes.AUDIO_AAC
+                            )
+                            .addListener(
+                                    new Transformer.Listener() {
 
-        File outputDir =
-                new File(
-                        getExternalFilesDir(null),
-                        "compressed"
-                );
+                                        @Override
+                                        public void onCompleted(
+                                                @NonNull
+                                                Composition composition,
+                                                @NonNull
+                                                ExportResult result
+                                        ) {
 
+                                            compressionCompleted();
+                                        }
 
-        if (!outputDir.exists()) {
+                                        @Override
+                                        public void onError(
+                                                @NonNull
+                                                Composition composition,
+                                                @NonNull
+                                                ExportResult result,
+                                                @NonNull
+                                                ExportException exception
+                                        ) {
 
-            outputDir.mkdirs();
-        }
-
-
-        String time =
-                new SimpleDateFormat(
-                        "yyyyMMdd_HHmmss",
-                        Locale.US
-                ).format(
-                        new Date()
-                );
-
-
-        compressedFile =
-                new File(
-                        outputDir,
-                        "compressed_" +
-                                time +
-                                ".mp4"
-                );
-
-
-        /*
-         * AAC 64 kbps is a good general target
-         * for size reduction.
-         */
-
-        AudioEncoderSettings audioSettings =
-                new AudioEncoderSettings.Builder()
-                        .setBitrate(64_000)
-                        .build();
-
-
-        DefaultEncoderFactory encoderFactory =
-                new DefaultEncoderFactory.Builder(
-                        this
-                )
-                        .setEnableFallback(true)
-                        .setRequestedAudioEncoderSettings(
-                                audioSettings
-                        )
-                        .build();
-
-
-        transformer =
-                new Transformer.Builder(this)
-
-                        .setEncoderFactory(
-                                encoderFactory
-                        )
-
-                        .setAudioMimeType(
-                                MimeTypes.AUDIO_AAC
-                        )
-
-                        .addListener(
-                                new Transformer.Listener() {
-
-                                    @Override
-                                    public void onCompleted(
-                                            @NonNull
-                                            CompositionDummy composition,
-                                            @NonNull
-                                            ExportResult result
-                                    ) {
+                                            compressionFailed(
+                                                    exception.getMessage()
+                                            );
+                                        }
                                     }
+                            )
+                            .build();
 
-                                    @Override
-                                    public void onError(
-                                            @NonNull
-                                            androidx.media3.transformer.Composition composition,
-                                            @NonNull
-                                            ExportResult result,
-                                            @NonNull
-                                            ExportException exception
-                                    ) {
+            MediaItem mediaItem =
+                    MediaItem.fromUri(
+                            selectedUri
+                    );
 
-                                        compressionRunning =
-                                                false;
-
-                                        sendFailure(
-                                                exception.getMessage()
-                                        );
-                                    }
-                                }
-                        )
-
-                        .build();
-
-
-        /*
-         * Input MediaItem
-         */
-
-        MediaItem mediaItem =
-                MediaItem.fromUri(
-                        selectedUri
-                );
-
-
-        /*
-         * Remove video.
-         *
-         * This means the compressor produces
-         * audio-only MP4.
-         *
-         * This is intentionally fast and gives
-         * much smaller files for video inputs.
-         */
-
-        EditedMediaItem editedMediaItem =
-                new EditedMediaItem.Builder(
-                        mediaItem
-                )
-                        .setRemoveVideo(true)
-                        .build();
-
-
-        try {
+            EditedMediaItem editedMediaItem =
+                    new EditedMediaItem.Builder(
+                            mediaItem
+                    )
+                    .setRemoveVideo(true)
+                    .build();
 
             transformer.start(
                     editedMediaItem,
                     compressedFile.getAbsolutePath()
             );
 
-            monitorProgress();
+            startProgressMonitor();
 
         } catch (Exception e) {
 
-            compressionRunning =
-                    false;
-
-            sendFailure(
+            compressionFailed(
                     e.getMessage()
             );
         }
     }
 
-
-    /*
-     * ==========================================
-     * PROGRESS
-     * ==========================================
-     */
-
-    private void monitorProgress() {
-
-        if (
-                transformer == null ||
-                !compressionRunning
-        ) {
-
-            return;
-        }
-
-
-        ProgressHolder holder =
-                new ProgressHolder();
-
-
-        int state;
-
-
-        try {
-
-            state =
-                    transformer.getProgress(
-                            holder
-                    );
-
-        } catch (Exception e) {
-
-            sendFailure(
-                    e.getMessage()
-            );
-
-            return;
-        }
-
-
-        if (
-                state ==
-                        Transformer
-                                .PROGRESS_STATE_AVAILABLE
-        ) {
-
-            int progress =
-                    holder.progress;
-
-
-            sendProgress(
-                    progress,
-                    "Compressing..."
-            );
-
-        } else {
-
-            sendProgress(
-                    10,
-                    "Processing..."
-            );
-        }
-
+    private void startProgressMonitor() {
 
         handler.postDelayed(
-                this::monitorProgress,
+                new Runnable() {
+
+                    @Override
+                    public void run() {
+
+                        if (!compressionRunning ||
+                                transformer == null) {
+
+                            return;
+                        }
+
+                        try {
+
+                            int state =
+                                    transformer.getProgress(
+                                            progressHolder
+                                    );
+
+                            int percent =
+                                    progressHolder.progress;
+
+                            if (state ==
+                                    Transformer.PROGRESS_STATE_AVAILABLE) {
+
+                                runJavascript(
+                                        "window.compressionProgress(" +
+                                        percent +
+                                        ",'Compressing " +
+                                        percent +
+                                        "%...');"
+                                );
+                            }
+
+                            handler.postDelayed(
+                                    this,
+                                    500
+                            );
+
+                        } catch (Exception ignored) {
+                        }
+                    }
+                },
                 500
         );
     }
 
-
-    /*
-     * ==========================================
-     * SEND PROGRESS TO JAVASCRIPT
-     * ==========================================
-     */
-
-    private void sendProgress(
-            int percent,
-            String text
-    ) {
-
-        if (webView == null) {
-            return;
-        }
-
-
-        final int safePercent =
-                Math.max(
-                        0,
-                        Math.min(
-                                100,
-                                percent
-                        )
-                );
-
-
-        runOnUiThread(() -> {
-
-            String safeText =
-                    text
-                            .replace(
-                                    "\\",
-                                    "\\\\"
-                            )
-                            .replace(
-                                    "'",
-                                    "\\'"
-                            )
-                            .replace(
-                                    "\n",
-                                    " "
-                            );
-
-
-            webView.evaluateJavascript(
-                    "window.compressionProgress(" +
-                            safePercent +
-                            ",'" +
-                            safeText +
-                            "')",
-                    null
-            );
-
-        });
-    }
-
-
-    /*
-     * ==========================================
-     * COMPRESSION SUCCESS
-     * ==========================================
-     */
-
     private void compressionCompleted() {
 
-        compressionRunning =
-                false;
+        compressionRunning = false;
 
+        long outputSize = 0;
 
-        if (
-                compressedFile == null ||
-                !compressedFile.exists()
-        ) {
+        if (compressedFile != null &&
+                compressedFile.exists()) {
 
-            sendFailure(
-                    "Output file မတွေ့ပါ။"
-            );
-
-            return;
+            outputSize =
+                    compressedFile.length();
         }
 
+        final long finalOutputSize = outputSize;
 
-        long outputSize =
-                compressedFile.length();
-
-
-        sendProgress(
-                100,
-                "Completed"
+        runJavascript(
+                "window.compressionFinished(" +
+                "'" +
+                escapeJs(
+                        compressedFile.getAbsolutePath()
+                ) +
+                "'," +
+                originalFileSize +
+                "," +
+                finalOutputSize +
+                ");"
         );
-
-
-        runOnUiThread(() -> {
-
-            String outputPath =
-                    compressedFile
-                            .getAbsolutePath();
-
-
-            String js =
-                    "window.compressionFinished(" +
-                            "'" +
-                            escapeJs(
-                                    outputPath
-                            ) +
-                            "'," +
-                            originalFileSize +
-                            "," +
-                            outputSize +
-                            ")";
-
-
-            webView.evaluateJavascript(
-                    js,
-                    null
-            );
-        });
     }
 
-
-    /*
-     * ==========================================
-     * FAILURE
-     * ==========================================
-     */
-
-    private void sendFailure(
+    private void compressionFailed(
             String message
     ) {
 
-        compressionRunning =
-                false;
-
+        compressionRunning = false;
 
         if (message == null ||
-                message.trim().isEmpty()) {
+                message.isEmpty()) {
 
             message =
-                    "Compression failed.";
+                    "Compression failed";
         }
 
+        runJavascript(
+                "window.compressionFailed('" +
+                escapeJs(message) +
+                "');"
+        );
+    }
 
-        final String safe =
-                escapeJs(message);
+    private void saveFile(
+            Uri destinationUri
+    ) {
 
+        try {
 
-        runOnUiThread(() -> {
+            InputStream input =
+                    new FileInputStream(
+                            compressedFile
+                    );
 
-            if (webView != null) {
+            OutputStream output =
+                    getContentResolver()
+                            .openOutputStream(
+                                    destinationUri
+                            );
 
-                webView.evaluateJavascript(
-                        "window.compressionFailed('" +
-                                safe +
-                                "')",
-                        null
+            if (output == null) {
+
+                input.close();
+
+                return;
+            }
+
+            byte[] buffer =
+                    new byte[8192];
+
+            int length;
+
+            while (
+                    (length =
+                            input.read(buffer))
+                            > 0
+            ) {
+
+                output.write(
+                        buffer,
+                        0,
+                        length
                 );
             }
 
-            Toast.makeText(
-                    MainActivity.this,
-                    message,
-                    Toast.LENGTH_LONG
-            ).show();
+            output.flush();
 
-        });
+            output.close();
+            input.close();
+
+            runJavascript(
+                    "window.compressionProgress(" +
+                    "100," +
+                    "'File သိမ်းပြီးပါပြီ ✓'" +
+                    ");"
+            );
+
+        } catch (Exception e) {
+
+            runJavascript(
+                    "window.compressionFailed('" +
+                    escapeJs(
+                            e.getMessage()
+                    ) +
+                    "');"
+            );
+        }
     }
-
-
-    /*
-     * ==========================================
-     * FILE SIZE
-     * ==========================================
-     */
 
     private long getFileSize(
             Uri uri
     ) {
 
-        Cursor cursor = null;
-
-
         try {
 
-            cursor =
+            android.database.Cursor cursor =
                     getContentResolver()
                             .query(
                                     uri,
-                                    new String[]{
-                                            OpenableColumns.SIZE
-                                    },
+                                    null,
                                     null,
                                     null,
                                     null
                             );
 
+            if (cursor != null) {
 
-            if (
-                    cursor != null &&
-                    cursor.moveToFirst()
-            ) {
-
-                int index =
+                int sizeIndex =
                         cursor.getColumnIndex(
-                                OpenableColumns.SIZE
+                                android.provider.OpenableColumns.SIZE
                         );
 
+                if (cursor.moveToFirst() &&
+                        sizeIndex >= 0) {
 
-                if (index >= 0 &&
-                        !cursor.isNull(index)
-                ) {
+                    long size =
+                            cursor.getLong(
+                                    sizeIndex
+                            );
 
-                    return cursor.getLong(index);
+                    cursor.close();
+
+                    return size;
                 }
+
+                cursor.close();
             }
 
         } catch (Exception ignored) {
-
-        } finally {
-
-            if (cursor != null) {
-                cursor.close();
-            }
         }
-
 
         return 0;
     }
 
-
-    /*
-     * ==========================================
-     * SAVE OUTPUT
-     * ==========================================
-     */
-
-    private void saveOutputToUri(
-            Uri destination
+    private void runJavascript(
+            String javascript
     ) {
 
-        if (
-                compressedFile == null ||
-                !compressedFile.exists()
-        ) {
+        runOnUiThread(
+                () -> {
 
-            sendFailure(
-                    "Compressed output မရှိပါ။"
-            );
+                    if (webView != null) {
 
-            return;
-        }
-
-
-        new Thread(() -> {
-
-            try {
-
-                InputStream input =
-                        new FileInputStream(
-                                compressedFile
+                        webView.evaluateJavascript(
+                                javascript,
+                                null
                         );
-
-
-                OutputStream output =
-                        getContentResolver()
-                                .openOutputStream(
-                                        destination
-                                );
-
-
-                if (output == null) {
-
-                    throw new Exception(
-                            "Output stream မဖွင့်နိုင်ပါ။"
-                    );
+                    }
                 }
-
-
-                byte[] buffer =
-                        new byte[8192];
-
-
-                int length;
-
-
-                while (
-                        (length =
-                                input.read(buffer))
-                                != -1
-                ) {
-
-                    output.write(
-                            buffer,
-                            0,
-                            length
-                    );
-                }
-
-
-                output.flush();
-
-                output.close();
-
-                input.close();
-
-
-                runOnUiThread(() -> {
-
-                    Toast.makeText(
-                            MainActivity.this,
-                            "Output ကို save လုပ်ပြီးပါပြီ။",
-                            Toast.LENGTH_LONG
-                    ).show();
-
-                });
-
-
-            } catch (Exception e) {
-
-                sendFailure(
-                        "Save failed: " +
-                                e.getMessage()
-                );
-            }
-
-        }).start();
+        );
     }
 
-
-    /*
-     * ==========================================
-     * JAVASCRIPT ESCAPE
-     * ==========================================
-     */
-
     private String escapeJs(
-            String text
+            String value
     ) {
 
-        if (text == null) {
+        if (value == null) {
             return "";
         }
 
-
-        return text
+        return value
                 .replace(
                         "\\",
                         "\\\\"
@@ -932,39 +568,12 @@ public class MainActivity extends Activity {
                         "\\'"
                 )
                 .replace(
-                        "\"",
-                        "\\\""
-                )
-                .replace(
                         "\n",
-                        " "
+                        "\\n"
                 )
                 .replace(
                         "\r",
-                        " "
+                        "\\r"
                 );
     }
-
-
-    /*
-     * ==========================================
-     * WEBVIEW BACK BUTTON
-     * ==========================================
-     */
-
-    @Override
-    public void onBackPressed() {
-
-        if (
-                webView != null &&
-                webView.canGoBack()
-        ) {
-
-            webView.goBack();
-
-        } else {
-
-            super.onBackPressed();
-        }
-    }
-                                    }
+}
