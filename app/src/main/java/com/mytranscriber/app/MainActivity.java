@@ -3,6 +3,7 @@ package com.mytranscriber.app;
 import android.app.Activity;
 import android.content.ContentResolver;
 import android.content.ContentValues;
+import android.content.Context;
 import android.content.Intent;
 import android.database.Cursor;
 import android.graphics.Canvas;
@@ -16,23 +17,18 @@ import android.os.Bundle;
 import android.os.Environment;
 import android.provider.MediaStore;
 import android.provider.OpenableColumns;
-import android.text.Layout;
 import android.text.TextPaint;
-import android.text.TextUtils;
-import android.text.style.CharacterStyle;
-import android.view.View;
 import android.webkit.JavascriptInterface;
 import android.webkit.ValueCallback;
 import android.webkit.WebChromeClient;
 import android.webkit.WebResourceRequest;
+import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
 import android.widget.Toast;
 
 import androidx.annotation.Nullable;
-import androidx.appcompat.app.AppCompatActivity;
 
-import androidx.media3.common.C;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.effect.CanvasOverlay;
@@ -68,22 +64,7 @@ import java.util.Locale;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-
-/**
- * Media Toolkit
- *
- * Functions:
- * 1. WebView
- * 2. File picker for HTML
- * 3. Audio compressor
- * 4. SRT video picker
- * 5. SRT file picker
- * 6. Myanmar UTF-8 / UTF-16 SRT reader
- * 7. Burn SRT subtitles into video
- * 8. Text color / outline / background / position / effects
- * 9. Auto-save output
- */
-public class MainActivity extends AppCompatActivity {
+public class MainActivity extends Activity {
 
     // ============================================================
     // REQUEST CODES
@@ -91,10 +72,9 @@ public class MainActivity extends AppCompatActivity {
 
     private static final int FILE_PICKER_REQUEST = 1001;
     private static final int WEB_FILE_PICKER_REQUEST = 2001;
-    private static final int SAVE_FILE_REQUEST = 3001;
 
-    private static final int SRT_VIDEO_REQUEST = 5001;
-    private static final int SRT_FILE_REQUEST = 5002;
+    private static final int SRT_VIDEO_REQUEST = 4001;
+    private static final int SRT_FILE_REQUEST = 4002;
 
     // ============================================================
     // WEBVIEW
@@ -102,118 +82,40 @@ public class MainActivity extends AppCompatActivity {
 
     private WebView webView;
 
-    private ValueCallback<Uri[]> webFilePathCallback;
+    private ValueCallback<Uri[]> webFileCallback;
 
     // ============================================================
     // NORMAL COMPRESSOR
     // ============================================================
 
+    private Uri lastSelectedUri;
+
     private Transformer compressionTransformer;
 
-    private String compressionOutputPath;
+    private Thread compressionProgressThread;
 
-    private Uri compressionInputUri;
+    private boolean compressionRunning = false;
 
     // ============================================================
     // SRT BURNER
     // ============================================================
 
-    private Uri srtVideoUri;
-    private Uri srtFileUri;
-
-    private String srtVideoName = "";
-    private String srtFileName = "";
+    private Uri selectedSrtVideoUri;
+    private Uri selectedSrtFileUri;
 
     private Transformer srtTransformer;
 
-    private String srtOutputPath;
+    private Thread srtProgressThread;
 
-    private volatile boolean srtExportRunning = false;
+    private boolean srtBurning = false;
+
+    private File currentSrtTempOutput;
 
     // ============================================================
-    // PROGRESS
+    // SRT DATA
     // ============================================================
 
-    private final android.os.Handler mainHandler =
-            new android.os.Handler(android.os.Looper.getMainLooper());
-
-    private final ProgressHolder progressHolder = new ProgressHolder();
-
-    private final Runnable compressionProgressRunnable = new Runnable() {
-        @Override
-        public void run() {
-            if (compressionTransformer == null) {
-                return;
-            }
-
-            try {
-                int state = compressionTransformer.getProgress(progressHolder);
-
-                if (state == Transformer.PROGRESS_STATE_AVAILABLE) {
-                    int progress = Math.max(
-                            0,
-                            Math.min(100, progressHolder.progress)
-                    );
-
-                    sendJs(
-                            "window.compressionProgress && " +
-                            "window.compressionProgress(" +
-                            progress + ");"
-                    );
-                }
-
-                mainHandler.postDelayed(
-                        this,
-                        300
-                );
-
-            } catch (Exception ignored) {
-            }
-        }
-    };
-
-    private final Runnable srtProgressRunnable = new Runnable() {
-        @Override
-        public void run() {
-
-            if (!srtExportRunning || srtTransformer == null) {
-                return;
-            }
-
-            try {
-
-                int state =
-                        srtTransformer.getProgress(progressHolder);
-
-                if (state == Transformer.PROGRESS_STATE_AVAILABLE) {
-
-                    int progress =
-                            Math.max(
-                                    0,
-                                    Math.min(
-                                            100,
-                                            progressHolder.progress
-                                    )
-                            );
-
-                    sendJs(
-                            "window.srtBurnProgress && " +
-                            "window.srtBurnProgress(" +
-                            progress +
-                            ",'Burning subtitle...');"
-                    );
-                }
-
-            } catch (Exception ignored) {
-            }
-
-            mainHandler.postDelayed(
-                    this,
-                    300
-            );
-        }
-    };
-
+    private final List<SrtCue> srtCues = new ArrayList<>();
 
     // ============================================================
     // ACTIVITY
@@ -224,8 +126,9 @@ public class MainActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
 
         setupWebView();
-    }
 
+        setContentView(webView);
+    }
 
     // ============================================================
     // WEBVIEW SETUP
@@ -235,87 +138,105 @@ public class MainActivity extends AppCompatActivity {
 
         webView = new WebView(this);
 
-        setContentView(webView);
+        WebSettings settings = webView.getSettings();
 
-        webView.setBackgroundColor(Color.BLACK);
+        settings.setJavaScriptEnabled(true);
+        settings.setDomStorageEnabled(true);
+        settings.setAllowFileAccess(true);
+        settings.setAllowContentAccess(true);
+        settings.setMediaPlaybackRequiresUserGesture(false);
 
-        webView.getSettings().setJavaScriptEnabled(true);
-        webView.getSettings().setDomStorageEnabled(true);
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+            settings.setMixedContentMode(
+                    WebSettings.MIXED_CONTENT_COMPATIBILITY_MODE
+            );
+        }
 
-        webView.getSettings().setAllowFileAccess(true);
-        webView.getSettings().setAllowContentAccess(true);
+        webView.setBackgroundColor(Color.TRANSPARENT);
 
-        webView.getSettings().setMediaPlaybackRequiresUserGesture(false);
+        webView.setWebViewClient(new WebViewClient() {
 
-        webView.setWebViewClient(
-                new WebViewClient() {
+            @Override
+            public boolean shouldOverrideUrlLoading(
+                    WebView view,
+                    WebResourceRequest request
+            ) {
+                return false;
+            }
 
-                    @Override
-                    public boolean shouldOverrideUrlLoading(
-                            WebView view,
-                            WebResourceRequest request
-                    ) {
-                        return false;
-                    }
+            @Override
+            public boolean shouldOverrideUrlLoading(
+                    WebView view,
+                    String url
+            ) {
+                return false;
+            }
+        });
+
+        webView.setWebChromeClient(new WebChromeClient() {
+
+            @Override
+            public boolean onShowFileChooser(
+                    WebView webView,
+                    ValueCallback<Uri[]> filePathCallback,
+                    FileChooserParams fileChooserParams
+            ) {
+
+                if (webFileCallback != null) {
+                    webFileCallback.onReceiveValue(null);
                 }
-        );
 
+                webFileCallback = filePathCallback;
 
-        webView.setWebChromeClient(
-                new WebChromeClient() {
+                Intent intent;
 
-                    @Override
-                    public boolean onShowFileChooser(
-                            WebView webView,
-                            ValueCallback<Uri[]> filePathCallback,
-                            FileChooserParams fileChooserParams
-                    ) {
+                try {
+                    intent = fileChooserParams.createIntent();
+                } catch (Exception e) {
 
-                        if (webFilePathCallback != null) {
-                            webFilePathCallback.onReceiveValue(null);
-                        }
+                    intent = new Intent(Intent.ACTION_OPEN_DOCUMENT);
 
-                        webFilePathCallback = filePathCallback;
+                    intent.addCategory(
+                            Intent.CATEGORY_OPENABLE
+                    );
 
-                        try {
-
-                            Intent intent =
-                                    fileChooserParams.createIntent();
-
-                            startActivityForResult(
-                                    intent,
-                                    WEB_FILE_PICKER_REQUEST
-                            );
-
-                        } catch (Exception e) {
-
-                            webFilePathCallback = null;
-
-                            Toast.makeText(
-                                    MainActivity.this,
-                                    "File picker မဖွင့်နိုင်ပါ",
-                                    Toast.LENGTH_SHORT
-                            ).show();
-
-                        }
-
-                        return true;
-                    }
+                    intent.setType("*/*");
                 }
-        );
 
+                try {
+
+                    startActivityForResult(
+                            intent,
+                            WEB_FILE_PICKER_REQUEST
+                    );
+
+                } catch (Exception e) {
+
+                    if (webFileCallback != null) {
+                        webFileCallback.onReceiveValue(null);
+                        webFileCallback = null;
+                    }
+
+                    Toast.makeText(
+                            MainActivity.this,
+                            "File picker မဖွင့်နိုင်ပါ",
+                            Toast.LENGTH_SHORT
+                    ).show();
+                }
+
+                return true;
+            }
+        });
 
         webView.addJavascriptInterface(
                 new AndroidBridge(),
-                "Android"
+                "AndroidBridge"
         );
-
 
         webView.loadUrl(
                 "file:///android_asset/index.html"
         );
     }
-
 
     // ============================================================
     // JAVASCRIPT BRIDGE
@@ -324,46 +245,109 @@ public class MainActivity extends AppCompatActivity {
     public class AndroidBridge {
 
         // --------------------------------------------------------
-        // NORMAL COMPRESSOR
+        // NORMAL FILE PICKER
         // --------------------------------------------------------
 
         @JavascriptInterface
         public void pickFile() {
 
-            runOnUiThread(
-                    () -> openCompressionPicker()
-            );
+            runOnUiThread(() -> {
+
+                Intent intent =
+                        new Intent(Intent.ACTION_OPEN_DOCUMENT);
+
+                intent.addCategory(
+                        Intent.CATEGORY_OPENABLE
+                );
+
+                intent.setType("*/*");
+
+                try {
+
+                    startActivityForResult(
+                            intent,
+                            FILE_PICKER_REQUEST
+                    );
+
+                } catch (Exception e) {
+
+                    showToast(
+                            "File picker မဖွင့်နိုင်ပါ"
+                    );
+                }
+            });
         }
 
-
         // --------------------------------------------------------
-        // SRT VIDEO
+        // SRT VIDEO PICKER
         // --------------------------------------------------------
 
         @JavascriptInterface
         public void pickSrtVideo() {
 
-            runOnUiThread(
-                    () -> openSrtVideoPicker()
-            );
+            runOnUiThread(() -> {
+
+                Intent intent =
+                        new Intent(Intent.ACTION_OPEN_DOCUMENT);
+
+                intent.addCategory(
+                        Intent.CATEGORY_OPENABLE
+                );
+
+                intent.setType("video/*");
+
+                try {
+
+                    startActivityForResult(
+                            intent,
+                            SRT_VIDEO_REQUEST
+                    );
+
+                } catch (Exception e) {
+
+                    showToast(
+                            "Video picker မဖွင့်နိုင်ပါ"
+                    );
+                }
+            });
         }
 
-
         // --------------------------------------------------------
-        // SRT FILE
+        // SRT FILE PICKER
         // --------------------------------------------------------
 
         @JavascriptInterface
         public void pickSrtFile() {
 
-            runOnUiThread(
-                    () -> openSrtFilePicker()
-            );
+            runOnUiThread(() -> {
+
+                Intent intent =
+                        new Intent(Intent.ACTION_OPEN_DOCUMENT);
+
+                intent.addCategory(
+                        Intent.CATEGORY_OPENABLE
+                );
+
+                intent.setType("*/*");
+
+                try {
+
+                    startActivityForResult(
+                            intent,
+                            SRT_FILE_REQUEST
+                    );
+
+                } catch (Exception e) {
+
+                    showToast(
+                            "SRT picker မဖွင့်နိုင်ပါ"
+                    );
+                }
+            });
         }
 
-
         // --------------------------------------------------------
-        // BURN SRT
+        // START SRT BURN
         // --------------------------------------------------------
 
         @JavascriptInterface
@@ -379,8 +363,61 @@ public class MainActivity extends AppCompatActivity {
                 boolean bold
         ) {
 
-            runOnUiThread(
-                    () -> startSrtBurn(
+            runOnUiThread(() -> {
+
+                if (srtBurning) {
+
+                    showToast(
+                            "Subtitle burn လုပ်နေဆဲပါ"
+                    );
+
+                    return;
+                }
+
+                if (selectedSrtVideoUri == null) {
+
+                    callJs(
+                            "srtBurnFailed",
+                            "'Video ဖိုင်ကို အရင်ရွေးပါ'"
+                    );
+
+                    return;
+                }
+
+                if (selectedSrtFileUri == null) {
+
+                    callJs(
+                            "srtBurnFailed",
+                            "'SRT ဖိုင်ကို အရင်ရွေးပါ'"
+                    );
+
+                    return;
+                }
+
+                try {
+
+                    String srtText =
+                            readSrtFile(
+                                    selectedSrtFileUri
+                            );
+
+                    srtCues.clear();
+
+                    srtCues.addAll(
+                            parseSrt(srtText)
+                    );
+
+                    if (srtCues.isEmpty()) {
+
+                        callJs(
+                                "srtBurnFailed",
+                                "'SRT subtitle မတွေ့ပါ'"
+                        );
+
+                        return;
+                    }
+
+                    startSrtBurn(
                             textColor,
                             outlineColor,
                             backgroundColor,
@@ -390,112 +427,47 @@ public class MainActivity extends AppCompatActivity {
                             outlineWidth,
                             backgroundEnabled,
                             bold
-                    )
-            );
+                    );
+
+                } catch (Exception e) {
+
+                    callJs(
+                            "srtBurnFailed",
+                            jsString(
+                                    e.getMessage()
+                            )
+                    );
+                }
+            });
         }
 
-
         // --------------------------------------------------------
-        // OPTIONAL CANCEL
+        // CANCEL SRT
         // --------------------------------------------------------
 
         @JavascriptInterface
         public void cancelSrtBurn() {
 
-            runOnUiThread(
-                    () -> {
+            runOnUiThread(() -> {
 
-                        try {
+                try {
 
-                            if (srtTransformer != null) {
-                                srtTransformer.cancel();
-                            }
-
-                            srtExportRunning = false;
-
-                            sendJs(
-                                    "window.srtBurnFailed && " +
-                                    "window.srtBurnFailed(" +
-                                    jsQuote("Cancelled") +
-                                    ");"
-                            );
-
-                        } catch (Exception ignored) {
-                        }
+                    if (srtTransformer != null) {
+                        srtTransformer.cancel();
                     }
-            );
+
+                } catch (Exception ignored) {
+                }
+
+                srtBurning = false;
+
+                callJs(
+                        "srtBurnFailed",
+                        "'Subtitle burn cancelled'"
+                );
+            });
         }
     }
-
-
-    // ============================================================
-    // NORMAL COMPRESSOR FILE PICKER
-    // ============================================================
-
-    private void openCompressionPicker() {
-
-        Intent intent = new Intent(
-                Intent.ACTION_OPEN_DOCUMENT
-        );
-
-        intent.addCategory(
-                Intent.CATEGORY_OPENABLE
-        );
-
-        intent.setType("*/*");
-
-        startActivityForResult(
-                intent,
-                FILE_PICKER_REQUEST
-        );
-    }
-
-
-    // ============================================================
-    // SRT VIDEO PICKER
-    // ============================================================
-
-    private void openSrtVideoPicker() {
-
-        Intent intent = new Intent(
-                Intent.ACTION_OPEN_DOCUMENT
-        );
-
-        intent.addCategory(
-                Intent.CATEGORY_OPENABLE
-        );
-
-        intent.setType("video/*");
-
-        startActivityForResult(
-                intent,
-                SRT_VIDEO_REQUEST
-        );
-    }
-
-
-    // ============================================================
-    // SRT FILE PICKER
-    // ============================================================
-
-    private void openSrtFilePicker() {
-
-        Intent intent = new Intent(
-                Intent.ACTION_OPEN_DOCUMENT
-        );
-
-        intent.addCategory(
-                Intent.CATEGORY_OPENABLE
-        );
-
-        intent.setType("*/*");
-
-        startActivityForResult(
-                intent,
-                SRT_FILE_REQUEST
-        );
-    }
-
 
     // ============================================================
     // ACTIVITY RESULT
@@ -514,21 +486,20 @@ public class MainActivity extends AppCompatActivity {
                 data
         );
 
-
         // --------------------------------------------------------
-        // WEBVIEW FILE PICKER
+        // WEBVIEW FILE CHOOSER
         // --------------------------------------------------------
 
         if (requestCode == WEB_FILE_PICKER_REQUEST) {
 
-            if (webFilePathCallback == null) {
+            if (webFileCallback == null) {
                 return;
             }
 
             Uri[] results = null;
 
             if (
-                    resultCode == Activity.RESULT_OK
+                    resultCode == RESULT_OK
                     && data != null
             ) {
 
@@ -557,188 +528,167 @@ public class MainActivity extends AppCompatActivity {
                 }
             }
 
-            webFilePathCallback.onReceiveValue(
+            webFileCallback.onReceiveValue(
                     results
             );
 
-            webFilePathCallback = null;
+            webFileCallback = null;
 
             return;
         }
-
 
         // --------------------------------------------------------
         // NORMAL COMPRESSOR
         // --------------------------------------------------------
 
-        if (
-                requestCode == FILE_PICKER_REQUEST
-                && resultCode == Activity.RESULT_OK
-                && data != null
-                && data.getData() != null
-        ) {
+        if (requestCode == FILE_PICKER_REQUEST) {
 
-            compressionInputUri =
-                    data.getData();
+            if (
+                    resultCode == RESULT_OK
+                    && data != null
+                    && data.getData() != null
+            ) {
 
-            try {
+                Uri uri = data.getData();
 
-                getContentResolver()
-                        .takePersistableUriPermission(
-                                compressionInputUri,
-                                Intent.FLAG_GRANT_READ_URI_PERMISSION
-                        );
+                lastSelectedUri = uri;
 
-            } catch (Exception ignored) {
+                takePersistablePermission(
+                        uri,
+                        data
+                );
+
+                String name =
+                        getFileName(uri);
+
+                callJs(
+                        "compressionFileSelected",
+                        jsString(name)
+                );
             }
-
-
-            String name =
-                    getFileName(
-                            compressionInputUri
-                    );
-
-            sendJs(
-                    "window.compressionFileSelected && " +
-                    "window.compressionFileSelected(" +
-                    jsQuote(name) +
-                    ");"
-            );
-
-            startCompression(
-                    compressionInputUri
-            );
 
             return;
         }
-
 
         // --------------------------------------------------------
         // SRT VIDEO
         // --------------------------------------------------------
 
-        if (
-                requestCode == SRT_VIDEO_REQUEST
-                && resultCode == Activity.RESULT_OK
-                && data != null
-                && data.getData() != null
-        ) {
+        if (requestCode == SRT_VIDEO_REQUEST) {
 
-            srtVideoUri =
-                    data.getData();
+            if (
+                    resultCode == RESULT_OK
+                    && data != null
+                    && data.getData() != null
+            ) {
 
-            try {
+                Uri uri =
+                        data.getData();
 
-                getContentResolver()
-                        .takePersistableUriPermission(
-                                srtVideoUri,
-                                Intent.FLAG_GRANT_READ_URI_PERMISSION
-                        );
+                selectedSrtVideoUri =
+                        uri;
 
-            } catch (Exception ignored) {
+                takePersistablePermission(
+                        uri,
+                        data
+                );
+
+                String name =
+                        getFileName(uri);
+
+                callJs(
+                        "srtVideoSelected",
+                        jsString(name)
+                );
             }
-
-
-            srtVideoName =
-                    getFileName(
-                            srtVideoUri
-                    );
-
-            sendJs(
-                    "window.srtVideoSelected && " +
-                    "window.srtVideoSelected(" +
-                    jsQuote(srtVideoName) +
-                    ");"
-            );
 
             return;
         }
-
 
         // --------------------------------------------------------
         // SRT FILE
         // --------------------------------------------------------
 
-        if (
-                requestCode == SRT_FILE_REQUEST
-                && resultCode == Activity.RESULT_OK
-                && data != null
-                && data.getData() != null
-        ) {
+        if (requestCode == SRT_FILE_REQUEST) {
 
-            srtFileUri =
-                    data.getData();
+            if (
+                    resultCode == RESULT_OK
+                    && data != null
+                    && data.getData() != null
+            ) {
 
-            try {
+                Uri uri =
+                        data.getData();
 
-                getContentResolver()
-                        .takePersistableUriPermission(
-                                srtFileUri,
-                                Intent.FLAG_GRANT_READ_URI_PERMISSION
-                        );
+                selectedSrtFileUri =
+                        uri;
 
-            } catch (Exception ignored) {
+                takePersistablePermission(
+                        uri,
+                        data
+                );
+
+                String name =
+                        getFileName(uri);
+
+                callJs(
+                        "srtFileSelected",
+                        jsString(name)
+                );
             }
+        }
+    }
 
+    // ============================================================
+    // COMPRESSOR
+    // ============================================================
 
-            srtFileName =
-                    getFileName(
-                            srtFileUri
-                    );
+    private void startCompression() {
 
-            sendJs(
-                    "window.srtFileSelected && " +
-                    "window.srtFileSelected(" +
-                    jsQuote(srtFileName) +
-                    ");"
+        if (lastSelectedUri == null) {
+
+            callJs(
+                    "compressionFailed",
+                    "'File မရွေးရသေးပါ'"
             );
 
             return;
         }
 
+        if (compressionRunning) {
 
-        // --------------------------------------------------------
-        // SAVE FILE
-        // --------------------------------------------------------
+            callJs(
+                    "compressionFailed",
+                    "'Compression လုပ်နေဆဲပါ'"
+            );
 
-        if (
-                requestCode == SAVE_FILE_REQUEST
-                && resultCode == Activity.RESULT_OK
-                && data != null
-                && data.getData() != null
-        ) {
-
-            // Kept for compatibility.
-            // Current compressor/SRT burner auto-save.
             return;
         }
+
+        compressAudio(64);
     }
 
-
-    // ============================================================
-    // NORMAL AUDIO COMPRESSOR
-    // ============================================================
-
-    private void startCompression(
-            Uri inputUri
+    private void compressAudio(
+            final int bitrateKbps
     ) {
 
-        if (inputUri == null) {
+        if (lastSelectedUri == null) {
+
+            callJs(
+                    "compressionFailed",
+                    "'File မရွေးရသေးပါ'"
+            );
+
             return;
         }
 
+        compressionRunning = true;
+
+        callJs(
+                "compressionStarted"
+        );
+
         try {
-
-            String outputName =
-                    "compressed_audio_" +
-                    new SimpleDateFormat(
-                            "yyyyMMdd_HHmmss",
-                            Locale.US
-                    ).format(
-                            new Date()
-                    ) +
-                    ".mp4";
-
 
             File outputDir =
                     new File(
@@ -752,39 +702,67 @@ public class MainActivity extends AppCompatActivity {
                 outputDir.mkdirs();
             }
 
+            String timestamp =
+                    new SimpleDateFormat(
+                            "yyyyMMdd_HHmmss",
+                            Locale.US
+                    ).format(
+                            new Date()
+                    );
 
             File outputFile =
                     new File(
                             outputDir,
-                            outputName
+                            "compressed_audio_"
+                                    + timestamp
+                                    + ".mp4"
                     );
 
-            compressionOutputPath =
-                    outputFile.getAbsolutePath();
+            MediaItem mediaItem =
+                    MediaItem.fromUri(
+                            lastSelectedUri
+                    );
 
-
-            // ----------------------------------------------------
-            // 64 kbps AAC
-            // ----------------------------------------------------
+            EditedMediaItem editedItem =
+                    new EditedMediaItem.Builder(
+                            mediaItem
+                    )
+                            .setRemoveVideo(true)
+                            .build();
 
             AudioEncoderSettings audioSettings =
                     new AudioEncoderSettings.Builder()
-                            .setBitrate(64_000)
+                            .setBitrate(
+                                    bitrateKbps * 1000
+                            )
                             .build();
 
-
+            // IMPORTANT:
+            // Media3 API uses this method.
             DefaultEncoderFactory encoderFactory =
                     new DefaultEncoderFactory.Builder(
                             this
                     )
-                    .setAudioEncoderSettings(
-                            audioSettings
-                    )
-                    .build();
+                            .setRequestedAudioEncoderSettings(
+                                    audioSettings
+                            )
+                            .build();
 
+            Composition composition =
+                    new Composition.Builder(
+                            EditedMediaItemSequence
+                                    .withAudioFrom(
+                                            Collections.singletonList(
+                                                    editedItem
+                                            )
+                                    )
+                    )
+                            .build();
 
             compressionTransformer =
-                    new Transformer.Builder(this)
+                    new Transformer.Builder(
+                            this
+                    )
                             .setEncoderFactory(
                                     encoderFactory
                             )
@@ -800,8 +778,12 @@ public class MainActivity extends AppCompatActivity {
                                                 ExportResult result
                                         ) {
 
-                                            mainHandler.removeCallbacks(
-                                                    compressionProgressRunnable
+                                            compressionRunning =
+                                                    false;
+
+                                            callJs(
+                                                    "compressionProgress",
+                                                    "100"
                                             );
 
                                             long size =
@@ -809,40 +791,16 @@ public class MainActivity extends AppCompatActivity {
                                                             ? outputFile.length()
                                                             : 0;
 
-
-                                            if (size <= 0) {
-
-                                                sendJs(
-                                                        "window.compressionFailed && " +
-                                                        "window.compressionFailed(" +
-                                                        jsQuote(
-                                                                "Output file မရပါ"
-                                                        ) +
-                                                        ");"
-                                                );
-
-                                                return;
-                                            }
-
-
-                                            sendJs(
-                                                    "window.compressionFinished && " +
-                                                    "window.compressionFinished(" +
-                                                    jsQuote(
+                                            callJs(
+                                                    "compressionFinished",
+                                                    jsString(
                                                             outputFile.getAbsolutePath()
-                                                    ) +
-                                                    "," +
-                                                    size +
-                                                    ");"
+                                                    ),
+                                                    String.valueOf(
+                                                            size
+                                                    )
                                             );
-
-                                            Toast.makeText(
-                                                    MainActivity.this,
-                                                    "Compression ပြီးပါပြီ",
-                                                    Toast.LENGTH_SHORT
-                                            ).show();
                                         }
-
 
                                         @Override
                                         public void onError(
@@ -851,84 +809,133 @@ public class MainActivity extends AppCompatActivity {
                                                 ExportException exception
                                         ) {
 
-                                            mainHandler.removeCallbacks(
-                                                    compressionProgressRunnable
-                                            );
+                                            compressionRunning =
+                                                    false;
 
-                                            sendJs(
-                                                    "window.compressionFailed && " +
-                                                    "window.compressionFailed(" +
-                                                    jsQuote(
-                                                            getErrorMessage(
-                                                                    exception
-                                                            )
-                                                    ) +
-                                                    ");"
+                                            String message =
+                                                    exception.getMessage();
+
+                                            if (
+                                                    message == null
+                                                    || message.isEmpty()
+                                            ) {
+
+                                                message =
+                                                        "Compression failed";
+                                            }
+
+                                            callJs(
+                                                    "compressionFailed",
+                                                    jsString(
+                                                            message
+                                                    )
                                             );
                                         }
                                     }
                             )
                             .build();
 
-
-            MediaItem mediaItem =
-                    MediaItem.fromUri(
-                            inputUri
-                    );
-
-
-            EditedMediaItem editedItem =
-                    new EditedMediaItem.Builder(
-                            mediaItem
-                    )
-                    .setRemoveVideo(true)
-                    .build();
-
-
-            Composition composition =
-                    new Composition.Builder(
-                            EditedMediaItemSequence.withAudioFrom(
-                                    Collections.singletonList(
-                                            editedItem
-                                    )
-                            )
-                    )
-                    .build();
-
-
-            sendJs(
-                    "window.compressionStarted && " +
-                    "window.compressionStarted();"
-            );
-
-
-            mainHandler.post(
-                    compressionProgressRunnable
-            );
-
-
             compressionTransformer.start(
                     composition,
-                    compressionOutputPath
+                    outputFile.getAbsolutePath()
             );
 
+            startCompressionProgressMonitor();
 
         } catch (Exception e) {
 
-            sendJs(
-                    "window.compressionFailed && " +
-                    "window.compressionFailed(" +
-                    jsQuote(
-                            getErrorMessage(e)
-                    ) +
-                    ");"
+            compressionRunning =
+                    false;
+
+            callJs(
+                    "compressionFailed",
+                    jsString(
+                            e.getMessage()
+                    )
             );
         }
     }
 
+    // ============================================================
+    // COMPRESSION PROGRESS
+    // ============================================================
+
+    private void startCompressionProgressMonitor() {
+
+        if (compressionProgressThread != null) {
+
+            try {
+                compressionProgressThread.interrupt();
+            } catch (Exception ignored) {
+            }
+        }
+
+        compressionProgressThread =
+                new Thread(() -> {
+
+                    ProgressHolder holder =
+                            new ProgressHolder();
+
+                    while (
+                            compressionRunning
+                            && compressionTransformer != null
+                    ) {
+
+                        try {
+
+                            int state =
+                                    compressionTransformer
+                                            .getProgress(
+                                                    holder
+                                            );
+
+                            if (
+                                    holder.progress >= 0
+                            ) {
+
+                                final int progress =
+                                        holder.progress;
+
+                                runOnUiThread(() ->
+                                        callJs(
+                                                "compressionProgress",
+                                                String.valueOf(
+                                                        progress
+                                                )
+                                        )
+                                );
+                            }
+
+                            if (
+                                    state
+                                            == Transformer.PROGRESS_STATE_NOT_STARTED
+                            ) {
+
+                                Thread.sleep(300);
+
+                            } else {
+
+                                Thread.sleep(500);
+                            }
+
+                        } catch (
+                                InterruptedException e
+                        ) {
+
+                            break;
+
+                        } catch (Exception e) {
+
+                            break;
+                        }
+                    }
+                });
+
+        compressionProgressThread.start();
+    }
 
     // ============================================================
-    // SRT BURN START
+    // SRT BURN
     // ============================================================
 
     private void startSrtBurn(
@@ -943,151 +950,15 @@ public class MainActivity extends AppCompatActivity {
             boolean bold
     ) {
 
-        if (srtExportRunning) {
+        srtBurning = true;
 
-            Toast.makeText(
-                    this,
-                    "SRT export လုပ်နေပါတယ်",
-                    Toast.LENGTH_SHORT
-            ).show();
-
-            return;
-        }
-
-
-        if (srtVideoUri == null) {
-
-            sendJs(
-                    "window.srtBurnFailed && " +
-                    "window.srtBurnFailed(" +
-                    jsQuote(
-                            "Video ဖိုင်ကို အရင်ရွေးပါ"
-                    ) +
-                    ");"
-            );
-
-            return;
-        }
-
-
-        if (srtFileUri == null) {
-
-            sendJs(
-                    "window.srtBurnFailed && " +
-                    "window.srtBurnFailed(" +
-                    jsQuote(
-                            "SRT ဖိုင်ကို အရင်ရွေးပါ"
-                    ) +
-                    ");"
-            );
-
-            return;
-        }
-
+        callJs(
+                "srtBurnProgress",
+                "0",
+                "'Preparing...'"
+        );
 
         try {
-
-            // ----------------------------------------------------
-            // READ SRT
-            // ----------------------------------------------------
-
-            String srtText =
-                    readSrtFile(
-                            srtFileUri
-                    );
-
-
-            if (
-                    srtText == null
-                    || srtText.trim().isEmpty()
-            ) {
-
-                throw new IOException(
-                        "SRT ဖိုင်ထဲမှာ subtitle မရှိပါ"
-                );
-            }
-
-
-            List<SrtCue> cues =
-                    parseSrt(
-                            srtText
-                    );
-
-
-            if (cues.isEmpty()) {
-
-                throw new IOException(
-                        "SRT timestamp မတွေ့ပါ"
-                );
-            }
-
-
-            // ----------------------------------------------------
-            // NORMALIZE SETTINGS
-            // ----------------------------------------------------
-
-            textColor =
-                    safeColor(
-                            textColor,
-                            "#FFFFFF"
-                    );
-
-            outlineColor =
-                    safeColor(
-                            outlineColor,
-                            "#000000"
-                    );
-
-            backgroundColor =
-                    safeColor(
-                            backgroundColor,
-                            "#000000"
-                    );
-
-
-            fontSize =
-                    Math.max(
-                            16,
-                            Math.min(
-                                    160,
-                                    fontSize
-                            )
-                    );
-
-
-            outlineWidth =
-                    Math.max(
-                            0,
-                            Math.min(
-                                    30,
-                                    outlineWidth
-                            )
-                    );
-
-
-            if (effect == null) {
-                effect = "none";
-            }
-
-            if (position == null) {
-                position = "bottom";
-            }
-
-
-            // ----------------------------------------------------
-            // OUTPUT FILE
-            // ----------------------------------------------------
-
-            String outputName =
-                    "subtitle_video_" +
-                    new SimpleDateFormat(
-                            "yyyyMMdd_HHmmss",
-                            Locale.US
-                    ).format(
-                            new Date()
-                    ) +
-                    ".mp4";
-
 
             File outputDir =
                     new File(
@@ -1097,30 +968,34 @@ public class MainActivity extends AppCompatActivity {
                             "Media Toolkit"
                     );
 
-
             if (!outputDir.exists()) {
                 outputDir.mkdirs();
             }
 
-
-            File outputFile =
-                    new File(
-                            outputDir,
-                            outputName
+            String timestamp =
+                    new SimpleDateFormat(
+                            "yyyyMMdd_HHmmss",
+                            Locale.US
+                    ).format(
+                            new Date()
                     );
 
+            currentSrtTempOutput =
+                    new File(
+                            outputDir,
+                            "subtitle_video_"
+                                    + timestamp
+                                    + ".mp4"
+                    );
 
-            srtOutputPath =
-                    outputFile.getAbsolutePath();
-
-
-            // ----------------------------------------------------
-            // CANVAS OVERLAY
-            // ----------------------------------------------------
+            MediaItem mediaItem =
+                    MediaItem.fromUri(
+                            selectedSrtVideoUri
+                    );
 
             SrtCanvasOverlay overlay =
                     new SrtCanvasOverlay(
-                            cues,
+                            srtCues,
                             textColor,
                             outlineColor,
                             backgroundColor,
@@ -1132,19 +1007,12 @@ public class MainActivity extends AppCompatActivity {
                             bold
                     );
 
-
             OverlayEffect overlayEffect =
                     new OverlayEffect(
                             Collections.singletonList(
                                     (TextureOverlay) overlay
                             )
                     );
-
-
-            // ----------------------------------------------------
-            // IMPORTANT:
-            // Effects is in transformer package
-            // ----------------------------------------------------
 
             Effects effects =
                     new Effects(
@@ -1154,26 +1022,14 @@ public class MainActivity extends AppCompatActivity {
                             )
                     );
 
-
-            MediaItem mediaItem =
-                    MediaItem.fromUri(
-                            srtVideoUri
-                    );
-
-
             EditedMediaItem editedMediaItem =
                     new EditedMediaItem.Builder(
                             mediaItem
                     )
-                    .setEffects(
-                            effects
-                    )
-                    .build();
-
-
-            // ----------------------------------------------------
-            // COMPOSITION
-            // ----------------------------------------------------
+                            .setEffects(
+                                    effects
+                            )
+                            .build();
 
             Composition composition =
                     new Composition.Builder(
@@ -1184,15 +1040,12 @@ public class MainActivity extends AppCompatActivity {
                                             )
                                     )
                     )
-                    .build();
-
-
-            // ----------------------------------------------------
-            // TRANSFORMER
-            // ----------------------------------------------------
+                            .build();
 
             srtTransformer =
-                    new Transformer.Builder(this)
+                    new Transformer.Builder(
+                            this
+                    )
                             .setVideoMimeType(
                                     MimeTypes.VIDEO_H264
                             )
@@ -1208,51 +1061,48 @@ public class MainActivity extends AppCompatActivity {
                                                 ExportResult result
                                         ) {
 
-                                            srtExportRunning = false;
+                                            srtBurning =
+                                                    false;
 
-                                            mainHandler.removeCallbacks(
-                                                    srtProgressRunnable
-                                            );
+                                            runOnUiThread(() -> {
 
+                                                try {
 
-                                            try {
+                                                    String fileName =
+                                                            currentSrtTempOutput
+                                                                    .getName();
 
-                                                saveSrtOutputToGallery(
-                                                        outputFile,
-                                                        outputName
-                                                );
+                                                    saveSrtVideoToMediaStore(
+                                                            currentSrtTempOutput,
+                                                            fileName
+                                                    );
 
+                                                    callJs(
+                                                            "srtBurnProgress",
+                                                            "100",
+                                                            "'Completed'"
+                                                    );
 
-                                                sendJs(
-                                                        "window.srtBurnFinished && " +
-                                                        "window.srtBurnFinished(" +
-                                                        jsQuote(
-                                                                outputName
-                                                        ) +
-                                                        ");"
-                                                );
+                                                    callJs(
+                                                            "srtBurnFinished",
+                                                            jsString(
+                                                                    fileName
+                                                            )
+                                                    );
 
+                                                } catch (
+                                                        Exception e
+                                                ) {
 
-                                                Toast.makeText(
-                                                        MainActivity.this,
-                                                        "Subtitle video သိမ်းပြီးပါပြီ",
-                                                        Toast.LENGTH_LONG
-                                                ).show();
-
-
-                                            } catch (Exception e) {
-
-                                                sendJs(
-                                                        "window.srtBurnFailed && " +
-                                                        "window.srtBurnFailed(" +
-                                                        jsQuote(
-                                                                getErrorMessage(e)
-                                                        ) +
-                                                        ");"
-                                                );
-                                            }
+                                                    callJs(
+                                                            "srtBurnFailed",
+                                                            jsString(
+                                                                    e.getMessage()
+                                                            )
+                                                    );
+                                                }
+                                            });
                                         }
-
 
                                         @Override
                                         public void onError(
@@ -1261,72 +1111,791 @@ public class MainActivity extends AppCompatActivity {
                                                 ExportException exception
                                         ) {
 
-                                            srtExportRunning = false;
+                                            srtBurning =
+                                                    false;
 
-                                            mainHandler.removeCallbacks(
-                                                    srtProgressRunnable
-                                            );
+                                            String message =
+                                                    exception.getMessage();
 
+                                            if (
+                                                    message == null
+                                                    || message.isEmpty()
+                                            ) {
 
-                                            sendJs(
-                                                    "window.srtBurnFailed && " +
-                                                    "window.srtBurnFailed(" +
-                                                    jsQuote(
-                                                            getErrorMessage(
-                                                                    exception
-                                                            )
-                                                    ) +
-                                                    ");"
+                                                message =
+                                                        "Subtitle burn failed";
+                                            }
+
+                                            callJs(
+                                                    "srtBurnFailed",
+                                                    jsString(
+                                                            message
+                                                    )
                                             );
                                         }
                                     }
                             )
                             .build();
 
-
-            srtExportRunning = true;
-
-
-            sendJs(
-                    "window.srtBurnProgress && " +
-                    "window.srtBurnProgress(0,'Preparing...');"
-            );
-
-
-            mainHandler.post(
-                    srtProgressRunnable
-            );
-
-
             srtTransformer.start(
                     composition,
-                    srtOutputPath
+                    currentSrtTempOutput.getAbsolutePath()
             );
 
+            startSrtProgressMonitor();
 
         } catch (Exception e) {
 
-            srtExportRunning = false;
+            srtBurning =
+                    false;
 
-            mainHandler.removeCallbacks(
-                    srtProgressRunnable
-            );
-
-
-            sendJs(
-                    "window.srtBurnFailed && " +
-                    "window.srtBurnFailed(" +
-                    jsQuote(
-                            getErrorMessage(e)
-                    ) +
-                    ");"
+            callJs(
+                    "srtBurnFailed",
+                    jsString(
+                            e.getMessage()
+                    )
             );
         }
     }
 
+    // ============================================================
+    // SRT PROGRESS
+    // ============================================================
+
+    private void startSrtProgressMonitor() {
+
+        if (srtProgressThread != null) {
+
+            try {
+                srtProgressThread.interrupt();
+            } catch (Exception ignored) {
+            }
+        }
+
+        srtProgressThread =
+                new Thread(() -> {
+
+                    ProgressHolder holder =
+                            new ProgressHolder();
+
+                    while (
+                            srtBurning
+                            && srtTransformer != null
+                    ) {
+
+                        try {
+
+                            srtTransformer.getProgress(
+                                    holder
+                            );
+
+                            int progress =
+                                    holder.progress;
+
+                            if (progress >= 0) {
+
+                                runOnUiThread(() ->
+                                        callJs(
+                                                "srtBurnProgress",
+                                                String.valueOf(
+                                                        progress
+                                                ),
+                                                "'Burning subtitle...'"
+                                        )
+                                );
+                            }
+
+                            Thread.sleep(500);
+
+                        } catch (
+                                InterruptedException e
+                        ) {
+
+                            break;
+
+                        } catch (Exception e) {
+
+                            break;
+                        }
+                    }
+                });
+
+        srtProgressThread.start();
+    }
 
     // ============================================================
-    // SRT CANVAS OVERLAY
+    // SAVE SRT VIDEO
+    // ============================================================
+
+    private void saveSrtVideoToMediaStore(
+            File sourceFile,
+            String fileName
+    ) throws IOException {
+
+        if (
+                sourceFile == null
+                || !sourceFile.exists()
+        ) {
+
+            throw new IOException(
+                    "Output video မတွေ့ပါ"
+            );
+        }
+
+        if (Build.VERSION.SDK_INT >= 29) {
+
+            ContentResolver resolver =
+                    getContentResolver();
+
+            ContentValues values =
+                    new ContentValues();
+
+            values.put(
+                    MediaStore.Video.Media.DISPLAY_NAME,
+                    fileName
+            );
+
+            values.put(
+                    MediaStore.Video.Media.MIME_TYPE,
+                    "video/mp4"
+            );
+
+            values.put(
+                    MediaStore.Video.Media.RELATIVE_PATH,
+                    Environment.DIRECTORY_MOVIES
+                            + "/Media Toolkit"
+            );
+
+            values.put(
+                    MediaStore.Video.Media.IS_PENDING,
+                    1
+            );
+
+            Uri collection =
+                    MediaStore.Video.Media
+                            .getContentUri(
+                                    MediaStore.VOLUME_EXTERNAL_PRIMARY
+                            );
+
+            Uri uri =
+                    resolver.insert(
+                            collection,
+                            values
+                    );
+
+            if (uri == null) {
+
+                throw new IOException(
+                        "MediaStore file create မရပါ"
+                );
+            }
+
+            try {
+
+                OutputStream outputStream =
+                        resolver.openOutputStream(
+                                uri
+                        );
+
+                if (outputStream == null) {
+
+                    throw new IOException(
+                            "Output stream မရပါ"
+                    );
+                }
+
+                copyFile(
+                        sourceFile,
+                        outputStream
+                );
+
+                outputStream.close();
+
+                ContentValues done =
+                        new ContentValues();
+
+                done.put(
+                        MediaStore.Video.Media.IS_PENDING,
+                        0
+                );
+
+                resolver.update(
+                        uri,
+                        done,
+                        null,
+                        null
+                );
+
+            } catch (Exception e) {
+
+                resolver.delete(
+                        uri,
+                        null,
+                        null
+                );
+
+                throw e;
+            }
+
+        } else {
+
+            File moviesDir =
+                    Environment.getExternalStoragePublicDirectory(
+                            Environment.DIRECTORY_MOVIES
+                    );
+
+            File appDir =
+                    new File(
+                            moviesDir,
+                            "Media Toolkit"
+                    );
+
+            if (!appDir.exists()) {
+                appDir.mkdirs();
+            }
+
+            File destination =
+                    new File(
+                            appDir,
+                            fileName
+                    );
+
+            copyFile(
+                    sourceFile,
+                    destination
+            );
+        }
+    }
+
+    // ============================================================
+    // FILE COPY
+    // ============================================================
+
+    private void copyFile(
+            File source,
+            OutputStream outputStream
+    ) throws IOException {
+
+        FileInputStream input =
+                new FileInputStream(
+                        source
+                );
+
+        try {
+
+            byte[] buffer =
+                    new byte[1024 * 64];
+
+            int length;
+
+            while (
+                    (length = input.read(buffer))
+                            != -1
+            ) {
+
+                outputStream.write(
+                        buffer,
+                        0,
+                        length
+                );
+            }
+
+            outputStream.flush();
+
+        } finally {
+
+            input.close();
+        }
+    }
+
+    private void copyFile(
+            File source,
+            File destination
+    ) throws IOException {
+
+        FileInputStream input =
+                new FileInputStream(
+                        source
+                );
+
+        FileOutputStream output =
+                new FileOutputStream(
+                        destination
+                );
+
+        try {
+
+            byte[] buffer =
+                    new byte[1024 * 64];
+
+            int length;
+
+            while (
+                    (length = input.read(buffer))
+                            != -1
+            ) {
+
+                output.write(
+                        buffer,
+                        0,
+                        length
+                );
+            }
+
+            output.flush();
+
+        } finally {
+
+            try {
+                input.close();
+            } catch (Exception ignored) {
+            }
+
+            try {
+                output.close();
+            } catch (Exception ignored) {
+            }
+        }
+    }
+
+    // ============================================================
+    // SRT FILE READER
+    // ============================================================
+
+    private String readSrtFile(
+            Uri uri
+    ) throws IOException {
+
+        InputStream input =
+                getContentResolver()
+                        .openInputStream(uri);
+
+        if (input == null) {
+
+            throw new IOException(
+                    "SRT file ဖတ်မရပါ"
+            );
+        }
+
+        byte[] bytes;
+
+        try {
+
+            ByteArrayOutputStream output =
+                    new ByteArrayOutputStream();
+
+            byte[] buffer =
+                    new byte[8192];
+
+            int length;
+
+            while (
+                    (length =
+                            input.read(buffer))
+                            != -1
+            ) {
+
+                output.write(
+                        buffer,
+                        0,
+                        length
+                );
+            }
+
+            bytes =
+                    output.toByteArray();
+
+        } finally {
+
+            input.close();
+        }
+
+        if (bytes.length >= 2) {
+
+            // UTF-16 LE BOM
+            if (
+                    (bytes[0] & 0xFF) == 0xFF
+                    && (bytes[1] & 0xFF) == 0xFE
+            ) {
+
+                return new String(
+                        bytes,
+                        2,
+                        bytes.length - 2,
+                        Charset.forName(
+                                "UTF-16LE"
+                        )
+                );
+            }
+
+            // UTF-16 BE BOM
+            if (
+                    (bytes[0] & 0xFF) == 0xFE
+                    && (bytes[1] & 0xFF) == 0xFF
+            ) {
+
+                return new String(
+                        bytes,
+                        2,
+                        bytes.length - 2,
+                        Charset.forName(
+                                "UTF-16BE"
+                        )
+                );
+            }
+        }
+
+        // UTF-8 BOM
+        if (
+                bytes.length >= 3
+                && (bytes[0] & 0xFF) == 0xEF
+                && (bytes[1] & 0xFF) == 0xBB
+                && (bytes[2] & 0xFF) == 0xBF
+        ) {
+
+            return new String(
+                    bytes,
+                    3,
+                    bytes.length - 3,
+                    Charset.forName(
+                            "UTF-8"
+                    )
+            );
+        }
+
+        // Detect UTF-16 without BOM
+        if (looksLikeUtf16LE(bytes)) {
+
+            return new String(
+                    bytes,
+                    Charset.forName(
+                            "UTF-16LE"
+                    )
+            );
+        }
+
+        if (looksLikeUtf16BE(bytes)) {
+
+            return new String(
+                    bytes,
+                    Charset.forName(
+                            "UTF-16BE"
+                    )
+            );
+        }
+
+        return new String(
+                bytes,
+                Charset.forName(
+                        "UTF-8"
+                )
+        );
+    }
+
+    private boolean looksLikeUtf16LE(
+            byte[] data
+    ) {
+
+        if (data.length < 10) {
+            return false;
+        }
+
+        int zeroCount = 0;
+
+        int limit =
+                Math.min(
+                        data.length,
+                        200
+                );
+
+        for (
+                int i = 1;
+                i < limit;
+                i += 2
+        ) {
+
+            if (data[i] == 0) {
+                zeroCount++;
+            }
+        }
+
+        return zeroCount > 5;
+    }
+
+    private boolean looksLikeUtf16BE(
+            byte[] data
+    ) {
+
+        if (data.length < 10) {
+            return false;
+        }
+
+        int zeroCount = 0;
+
+        int limit =
+                Math.min(
+                        data.length,
+                        200
+                );
+
+        for (
+                int i = 0;
+                i < limit;
+                i += 2
+        ) {
+
+            if (data[i] == 0) {
+                zeroCount++;
+            }
+        }
+
+        return zeroCount > 5;
+    }
+
+    // ============================================================
+    // SRT PARSER
+    // ============================================================
+
+    private List<SrtCue> parseSrt(
+            String text
+    ) {
+
+        List<SrtCue> result =
+                new ArrayList<>();
+
+        if (text == null) {
+            return result;
+        }
+
+        text =
+                text.replace(
+                        "\r\n",
+                        "\n"
+                );
+
+        text =
+                text.replace(
+                        "\r",
+                        "\n"
+                );
+
+        String[] blocks =
+                text.split(
+                        "\\n\\s*\\n"
+                );
+
+        Pattern timePattern =
+                Pattern.compile(
+                        "(\\d{1,2}:\\d{2}:\\d{2}[,.]\\d{1,3})\\s*-->\\s*(\\d{1,2}:\\d{2}:\\d{2}[,.]\\d{1,3})"
+                );
+
+        for (String block : blocks) {
+
+            if (
+                    block == null
+                    || block.trim().isEmpty()
+            ) {
+                continue;
+            }
+
+            String[] lines =
+                    block.split(
+                            "\\n"
+                    );
+
+            if (lines.length < 2) {
+                continue;
+            }
+
+            Matcher matcher =
+                    timePattern.matcher(
+                            block
+                    );
+
+            if (!matcher.find()) {
+                continue;
+            }
+
+            long start =
+                    parseSrtTime(
+                            matcher.group(1)
+                    );
+
+            long end =
+                    parseSrtTime(
+                            matcher.group(2)
+                    );
+
+            StringBuilder subtitle =
+                    new StringBuilder();
+
+            boolean afterTime =
+                    false;
+
+            for (String line : lines) {
+
+                if (
+                        line.contains("-->")
+                ) {
+
+                    afterTime = true;
+
+                    continue;
+                }
+
+                if (!afterTime) {
+                    continue;
+                }
+
+                String cleaned =
+                        line.trim();
+
+                if (cleaned.isEmpty()) {
+                    continue;
+                }
+
+                if (
+                        subtitle.length() > 0
+                ) {
+
+                    subtitle.append("\n");
+                }
+
+                subtitle.append(
+                        cleaned
+                );
+            }
+
+            String subtitleText =
+                    subtitle.toString()
+                            .trim();
+
+            if (
+                    !subtitleText.isEmpty()
+                    && end > start
+            ) {
+
+                result.add(
+                        new SrtCue(
+                                start,
+                                end,
+                                subtitleText
+                        )
+                );
+            }
+        }
+
+        return result;
+    }
+
+    private long parseSrtTime(
+            String time
+    ) {
+
+        try {
+
+            String normalized =
+                    time.replace(
+                            ',',
+                            '.'
+                    );
+
+            String[] parts =
+                    normalized.split(
+                            ":"
+                    );
+
+            int hours =
+                    Integer.parseInt(
+                            parts[0]
+                    );
+
+            int minutes =
+                    Integer.parseInt(
+                            parts[1]
+                    );
+
+            String[] seconds =
+                    parts[2].split(
+                            "\\."
+                    );
+
+            int sec =
+                    Integer.parseInt(
+                            seconds[0]
+                    );
+
+            int millis = 0;
+
+            if (
+                    seconds.length > 1
+            ) {
+
+                String ms =
+                        seconds[1];
+
+                if (ms.length() == 1) {
+
+                    ms += "00";
+
+                } else if (
+                        ms.length() == 2
+                ) {
+
+                    ms += "0";
+                }
+
+                if (ms.length() > 3) {
+                    ms = ms.substring(0, 3);
+                }
+
+                millis =
+                        Integer.parseInt(
+                                ms
+                        );
+            }
+
+            return
+                    hours * 3600000L
+                            + minutes * 60000L
+                            + sec * 1000L
+                            + millis;
+
+        } catch (Exception e) {
+
+            return 0;
+        }
+    }
+
+    // ============================================================
+    // SRT CUE
+    // ============================================================
+
+    private static class SrtCue {
+
+        final long startMs;
+        final long endMs;
+        final String text;
+
+        SrtCue(
+                long startMs,
+                long endMs,
+                String text
+        ) {
+
+            this.startMs =
+                    startMs;
+
+            this.endMs =
+                    endMs;
+
+            this.text =
+                    text;
+        }
+    }
+
+    // ============================================================
+    // CANVAS SUBTITLE OVERLAY
     // ============================================================
 
     private static class SrtCanvasOverlay
@@ -1347,6 +1916,16 @@ public class MainActivity extends AppCompatActivity {
         private final boolean backgroundEnabled;
         private final boolean bold;
 
+        private final TextPaint textPaint =
+                new TextPaint(
+                        Paint.ANTI_ALIAS_FLAG
+                                | Paint.SUBPIXEL_TEXT_FLAG
+                );
+
+        private final Paint backgroundPaint =
+                new Paint(
+                        Paint.ANTI_ALIAS_FLAG
+                );
 
         SrtCanvasOverlay(
                 List<SrtCue> cues,
@@ -1361,77 +1940,75 @@ public class MainActivity extends AppCompatActivity {
                 boolean bold
         ) {
 
-            // true = use input video frame size
-            super(true);
-
+            // false = SDR canvas
+            super(false);
 
             this.cues =
                     cues != null
                             ? cues
                             : Collections.emptyList();
 
-
             this.textColor =
-                    Color.parseColor(
-                            safeColor(
-                                    textColor,
-                                    "#FFFFFF"
-                            )
+                    parseColorSafe(
+                            textColor,
+                            Color.WHITE
                     );
-
 
             this.outlineColor =
-                    Color.parseColor(
-                            safeColor(
-                                    outlineColor,
-                                    "#000000"
-                            )
+                    parseColorSafe(
+                            outlineColor,
+                            Color.BLACK
                     );
-
 
             this.backgroundColor =
-                    Color.parseColor(
-                            safeColor(
-                                    backgroundColor,
-                                    "#000000"
+                    parseColorSafe(
+                            backgroundColor,
+                            Color.argb(
+                                    160,
+                                    0,
+                                    0,
+                                    0
                             )
                     );
-
 
             this.effect =
                     effect != null
-                            ? effect
+                            ? effect.toLowerCase(
+                                    Locale.US
+                            )
                             : "none";
-
 
             this.position =
                     position != null
-                            ? position
+                            ? position.toLowerCase(
+                                    Locale.US
+                            )
                             : "bottom";
-
 
             this.fontSize =
                     Math.max(
-                            16,
-                            fontSize
+                            18,
+                            Math.min(
+                                    fontSize,
+                                    120
+                            )
                     );
-
 
             this.outlineWidth =
                     Math.max(
                             0,
-                            outlineWidth
+                            Math.min(
+                                    outlineWidth,
+                                    20
+                            )
                     );
-
 
             this.backgroundEnabled =
                     backgroundEnabled;
 
-
             this.bold =
                     bold;
         }
-
 
         @Override
         public void onDraw(
@@ -1446,25 +2023,20 @@ public class MainActivity extends AppCompatActivity {
                 return;
             }
 
-
             long timeMs =
                     presentationTimeUs / 1000L;
 
-
-            SrtCue activeCue =
+            SrtCue active =
                     findCue(
                             timeMs
                     );
 
-
-            if (activeCue == null) {
+            if (active == null) {
                 return;
             }
 
-
             String text =
-                    activeCue.text;
-
+                    active.text;
 
             if (
                     text == null
@@ -1473,13 +2045,11 @@ public class MainActivity extends AppCompatActivity {
                 return;
             }
 
-
-            int width =
+            float width =
                     canvas.getWidth();
 
-            int height =
+            float height =
                     canvas.getHeight();
-
 
             if (
                     width <= 0
@@ -1488,77 +2058,16 @@ public class MainActivity extends AppCompatActivity {
                 return;
             }
 
-
-            // ----------------------------------------------------
-            // EFFECT
-            // ----------------------------------------------------
-
-            float alpha =
-                    calculateAlpha(
-                            activeCue,
-                            timeMs
+            float size =
+                    calculateFontSize(
+                            height
                     );
 
-
-            float scale =
-                    calculateScale(
-                            activeCue,
-                            timeMs
-                    );
-
-
-            float translateX =
-                    calculateTranslateX(
-                            activeCue,
-                            timeMs,
-                            width
-                    );
-
-
-            canvas.save();
-
-
-            canvas.translate(
-                    translateX,
-                    0
+            textPaint.setTextSize(
+                    size
             );
 
-
-            if (scale != 1f) {
-
-                canvas.scale(
-                        scale,
-                        scale,
-                        width / 2f,
-                        height / 2f
-                );
-            }
-
-
-            // ----------------------------------------------------
-            // TEXT PAINT
-            // ----------------------------------------------------
-
-            TextPaintEx paint =
-                    new TextPaintEx();
-
-
-            paint.setAntiAlias(true);
-
-            paint.setSubpixelText(true);
-
-            paint.setDither(true);
-
-            paint.setColor(
-                    textColor
-            );
-
-            paint.setTextSize(
-                    fontSize
-            );
-
-
-            paint.setTypeface(
+            textPaint.setTypeface(
                     Typeface.create(
                             "sans-serif",
                             bold
@@ -1567,76 +2076,81 @@ public class MainActivity extends AppCompatActivity {
                     )
             );
 
-
-            paint.setTextAlign(
+            textPaint.setTextAlign(
                     Paint.Align.CENTER
             );
 
-
-            paint.setAlpha(
-                    Math.max(
-                            0,
-                            Math.min(
-                                    255,
-                                    (int)(alpha * 255f)
-                            )
-                    )
+            textPaint.setStrokeJoin(
+                    Paint.Join.ROUND
             );
 
-
-            // ----------------------------------------------------
-            // WORD WRAP
-            // ----------------------------------------------------
-
-            float maxTextWidth =
-                    width * 0.90f;
-
+            textPaint.setStrokeCap(
+                    Paint.Cap.ROUND
+            );
 
             List<String> lines =
                     wrapText(
                             text,
-                            paint,
-                            maxTextWidth
+                            width * 0.88f
                     );
 
-
             float lineHeight =
-                    paint.getTextSize() * 1.20f;
-
+                    size * 1.18f;
 
             float totalHeight =
-                    lines.size() *
-                    lineHeight;
+                    lines.size()
+                            * lineHeight;
 
+            float centerY =
+                    calculatePositionY(
+                            height,
+                            totalHeight
+                    );
 
-            float x =
-                    width / 2f;
+            float alpha =
+                    calculateAlpha(
+                            active,
+                            timeMs
+                    );
 
+            float scale =
+                    calculateScale(
+                            active,
+                            timeMs
+                    );
 
-            float y;
+            float slide =
+                    calculateSlide(
+                            active,
+                            timeMs,
+                            height
+                    );
 
+            canvas.save();
 
-            if ("top".equalsIgnoreCase(position)) {
+            canvas.translate(
+                    width / 2f,
+                    centerY + slide
+            );
 
-                y =
-                        height * 0.12f;
+            canvas.scale(
+                    scale,
+                    scale
+            );
 
-            } else if (
-                    "center".equalsIgnoreCase(position)
-            ) {
+            int originalTextColor =
+                    textPaint.getColor();
 
-                y =
-                        (height - totalHeight) / 2f;
+            Paint.Style originalStyle =
+                    textPaint.getStyle();
 
-            } else {
+            float originalStrokeWidth =
+                    textPaint.getStrokeWidth();
 
-                // bottom
-                y =
-                        height
-                        - totalHeight
-                        - height * 0.10f;
-            }
-
+            textPaint.setAlpha(
+                    (int)
+                            (255f * alpha)
+            );
 
             // ----------------------------------------------------
             // BACKGROUND
@@ -1644,203 +2158,161 @@ public class MainActivity extends AppCompatActivity {
 
             if (backgroundEnabled) {
 
-                Paint bg =
-                        new Paint(
-                                Paint.ANTI_ALIAS_FLAG
-                        );
+                float maxWidth =
+                        0f;
 
-                bg.setColor(
+                for (String line : lines) {
+
+                    maxWidth =
+                            Math.max(
+                                    maxWidth,
+                                    textPaint.measureText(
+                                            line
+                                    )
+                            );
+                }
+
+                float paddingX =
+                        size * 0.45f;
+
+                float paddingY =
+                        size * 0.25f;
+
+                float left =
+                        -maxWidth / 2f
+                                - paddingX;
+
+                float right =
+                        maxWidth / 2f
+                                + paddingX;
+
+                float top =
+                        -totalHeight / 2f
+                                - paddingY;
+
+                float bottom =
+                        totalHeight / 2f
+                                + paddingY;
+
+                backgroundPaint.setColor(
                         backgroundColor
                 );
 
-                bg.setAlpha(
-                        Math.max(
-                                0,
-                                Math.min(
-                                        255,
-                                        (int)(
-                                                190f *
-                                                alpha
+                backgroundPaint.setAlpha(
+                        (int)
+                                (
+                                        Color.alpha(
+                                                backgroundColor
                                         )
+                                                * alpha
                                 )
-                        )
                 );
 
-
-                float paddingX =
-                        fontSize * 0.55f;
-
-                float paddingY =
-                        fontSize * 0.30f;
-
-
-                float maxWidth =
-                        getMaxLineWidth(
-                                lines,
-                                paint
-                        );
-
-
-                float left =
-                        x
-                        - maxWidth / 2f
-                        - paddingX;
-
-
-                float right =
-                        x
-                        + maxWidth / 2f
-                        + paddingX;
-
-
-                float top =
-                        y
-                        - paddingY;
-
-
-                float bottom =
-                        y
-                        + totalHeight
-                        + paddingY;
-
+                float radius =
+                        size * 0.18f;
 
                 canvas.drawRoundRect(
                         left,
                         top,
                         right,
                         bottom,
-                        fontSize * 0.25f,
-                        fontSize * 0.25f,
-                        bg
+                        radius,
+                        radius,
+                        backgroundPaint
                 );
             }
 
-
             // ----------------------------------------------------
-            // OUTLINE
-            // ----------------------------------------------------
-
-            if (outlineWidth > 0) {
-
-                TextPaintEx outlinePaint =
-                        new TextPaintEx();
-
-
-                outlinePaint.setAntiAlias(
-                        true
-                );
-
-                outlinePaint.setSubpixelText(
-                        true
-                );
-
-                outlinePaint.setTextSize(
-                        fontSize
-                );
-
-                outlinePaint.setTypeface(
-                        Typeface.create(
-                                "sans-serif",
-                                bold
-                                        ? Typeface.BOLD
-                                        : Typeface.NORMAL
-                        )
-                );
-
-                outlinePaint.setTextAlign(
-                        Paint.Align.CENTER
-                );
-
-                outlinePaint.setStyle(
-                        Paint.Style.STROKE
-                );
-
-                outlinePaint.setStrokeWidth(
-                        outlineWidth * 2f
-                );
-
-                outlinePaint.setStrokeJoin(
-                        Paint.Join.ROUND
-                );
-
-                outlinePaint.setColor(
-                        outlineColor
-                );
-
-                outlinePaint.setAlpha(
-                        Math.max(
-                                0,
-                                Math.min(
-                                        255,
-                                        (int)(alpha * 255f)
-                                )
-                        )
-                );
-
-
-                drawLines(
-                        canvas,
-                        lines,
-                        outlinePaint,
-                        x,
-                        y,
-                        lineHeight
-                );
-            }
-
-
-            // ----------------------------------------------------
-            // FILL
+            // TEXT
             // ----------------------------------------------------
 
-            paint.setStyle(
-                    Paint.Style.FILL
-            );
+            float firstBaseline =
+                    -totalHeight / 2f
+                            - textPaint.ascent()
+                            + (
+                            lineHeight
+                                    - (
+                                    -textPaint.ascent()
+                                            + textPaint.descent()
+                            )
+                    ) / 2f;
 
+            float y =
+                    firstBaseline;
 
-            drawLines(
-                    canvas,
-                    lines,
-                    paint,
-                    x,
-                    y,
-                    lineHeight
-            );
+            for (String line : lines) {
 
+                // Outline
+                if (outlineWidth > 0) {
 
-            canvas.restore();
-        }
+                    textPaint.setStyle(
+                            Paint.Style.STROKE
+                    );
 
+                    textPaint.setStrokeWidth(
+                            outlineWidth
+                                    * 2f
+                    );
 
-        // --------------------------------------------------------
-        // DRAW LINES
-        // --------------------------------------------------------
+                    textPaint.setColor(
+                            outlineColor
+                    );
 
-        private void drawLines(
-                Canvas canvas,
-                List<String> lines,
-                Paint paint,
-                float x,
-                float y,
-                float lineHeight
-        ) {
+                    textPaint.setAlpha(
+                            (int)
+                                    (255f * alpha)
+                    );
 
-            for (int i = 0; i < lines.size(); i++) {
+                    canvas.drawText(
+                            line,
+                            0,
+                            y,
+                            textPaint
+                    );
+                }
 
-                String line =
-                        lines.get(i);
+                // Main text
+                textPaint.setStyle(
+                        Paint.Style.FILL
+                );
 
+                textPaint.setStrokeWidth(
+                        0f
+                );
+
+                textPaint.setColor(
+                        textColor
+                );
+
+                textPaint.setAlpha(
+                        (int)
+                                (255f * alpha)
+                );
 
                 canvas.drawText(
                         line,
-                        x,
-                        y + (i + 1) * lineHeight
-                                - (lineHeight - paint.getTextSize()) / 2f,
-                        paint
+                        0,
+                        y,
+                        textPaint
                 );
-            }
-        }
 
+                y += lineHeight;
+            }
+
+            textPaint.setColor(
+                    originalTextColor
+            );
+
+            textPaint.setStyle(
+                    originalStyle
+            );
+
+            textPaint.setStrokeWidth(
+                    originalStrokeWidth
+            );
+
+            canvas.restore();
+        }
 
         // --------------------------------------------------------
         // FIND ACTIVE CUE
@@ -1864,6 +2336,55 @@ public class MainActivity extends AppCompatActivity {
             return null;
         }
 
+        // --------------------------------------------------------
+        // FONT SIZE
+        // --------------------------------------------------------
+
+        private float calculateFontSize(
+                float height
+        ) {
+
+            float scale =
+                    height / 1080f;
+
+            return Math.max(
+                    18f,
+                    fontSize * scale
+            );
+        }
+
+        // --------------------------------------------------------
+        // POSITION
+        // --------------------------------------------------------
+
+        private float calculatePositionY(
+                float height,
+                float totalHeight
+        ) {
+
+            if (
+                    "top".equals(position)
+            ) {
+
+                return
+                        height * 0.16f
+                                + totalHeight / 2f;
+            }
+
+            if (
+                    "center".equals(position)
+                    || "middle".equals(position)
+            ) {
+
+                return
+                        height / 2f;
+            }
+
+            // bottom
+            return
+                    height * 0.86f
+                            - totalHeight / 2f;
+        }
 
         // --------------------------------------------------------
         // FADE EFFECT
@@ -1875,70 +2396,43 @@ public class MainActivity extends AppCompatActivity {
         ) {
 
             if (
-                    !"fade".equalsIgnoreCase(
-                            effect
-                    )
+                    !"fade".equals(effect)
             ) {
+
                 return 1f;
             }
-
-
-            long duration =
-                    cue.endMs -
-                    cue.startMs;
-
-
-            if (duration <= 0) {
-                return 1f;
-            }
-
 
             long elapsed =
-                    timeMs -
-                    cue.startMs;
-
+                    timeMs - cue.startMs;
 
             long remaining =
-                    cue.endMs -
-                    timeMs;
+                    cue.endMs - timeMs;
 
+            float fadeDuration =
+                    350f;
 
-            long fade =
+            float alphaIn =
                     Math.min(
-                            350,
-                            duration / 3
+                            1f,
+                            elapsed
+                                    / fadeDuration
                     );
 
+            float alphaOut =
+                    Math.min(
+                            1f,
+                            remaining
+                                    / fadeDuration
+                    );
 
-            if (elapsed < fade) {
-
-                return Math.max(
-                        0f,
-                        Math.min(
-                                1f,
-                                elapsed /
-                                        (float)fade
-                        )
-                );
-            }
-
-
-            if (remaining < fade) {
-
-                return Math.max(
-                        0f,
-                        Math.min(
-                                1f,
-                                remaining /
-                                        (float)fade
-                        )
-                );
-            }
-
-
-            return 1f;
+            return Math.max(
+                    0.05f,
+                    Math.min(
+                            alphaIn,
+                            alphaOut
+                    )
+            );
         }
-
 
         // --------------------------------------------------------
         // POP EFFECT
@@ -1950,953 +2444,223 @@ public class MainActivity extends AppCompatActivity {
         ) {
 
             if (
-                    !"pop".equalsIgnoreCase(
-                            effect
-                    )
+                    !"pop".equals(effect)
             ) {
+
                 return 1f;
             }
 
-
             long elapsed =
-                    timeMs -
-                    cue.startMs;
+                    timeMs - cue.startMs;
 
+            if (elapsed < 350) {
 
-            float p =
-                    Math.max(
-                            0f,
-                            Math.min(
-                                    1f,
-                                    elapsed / 220f
-                            )
-                    );
+                float p =
+                        elapsed / 350f;
 
+                // Ease-out
+                p =
+                        1f
+                                - (
+                                1f - p
+                        )
+                                * (
+                                1f - p
+                        );
 
-            // Ease-out
-            float eased =
-                    1f -
-                    (1f - p) *
-                    (1f - p);
+                return
+                        0.80f
+                                + 0.20f * p;
+            }
 
-
-            return 0.75f +
-                    eased * 0.25f;
+            return 1f;
         }
-
 
         // --------------------------------------------------------
         // SLIDE EFFECT
         // --------------------------------------------------------
 
-        private float calculateTranslateX(
+        private float calculateSlide(
                 SrtCue cue,
                 long timeMs,
-                int width
+                float height
         ) {
 
             if (
-                    !"slide".equalsIgnoreCase(
-                            effect
-                    )
+                    !"slide".equals(effect)
             ) {
+
                 return 0f;
             }
 
-
             long elapsed =
-                    timeMs -
-                    cue.startMs;
+                    timeMs - cue.startMs;
 
+            if (elapsed >= 350) {
+                return 0f;
+            }
 
             float p =
-                    Math.max(
-                            0f,
-                            Math.min(
-                                    1f,
-                                    elapsed / 350f
-                            )
+                    elapsed / 350f;
+
+            p =
+                    1f
+                            - (
+                            1f - p
+                    )
+                            * (
+                            1f - p
                     );
 
-
-            float eased =
-                    1f -
-                    (1f - p) *
-                    (1f - p);
-
-
-            return -width * 0.30f *
-                    (1f - eased);
+            return
+                    (1f - p)
+                            * height
+                            * 0.10f;
         }
 
-
         // --------------------------------------------------------
-        // WRAP TEXT
+        // TEXT WRAPPING
         // --------------------------------------------------------
 
         private List<String> wrapText(
                 String text,
-                Paint paint,
                 float maxWidth
         ) {
 
             List<String> result =
                     new ArrayList<>();
 
-
-            String[] paragraphs =
-                    text.replace(
-                            "\r",
-                            ""
-                    ).split(
-                            "\n"
+            String[] originalLines =
+                    text.split(
+                            "\\n"
                     );
 
-
             for (
-                    String paragraph :
-                    paragraphs
+                    String originalLine
+                    : originalLines
             ) {
 
-                paragraph =
-                        paragraph.trim();
-
-
-                if (paragraph.isEmpty()) {
+                if (
+                        originalLine.isEmpty()
+                ) {
 
                     result.add("");
 
                     continue;
                 }
 
-
                 String[] words =
-                        paragraph.split(
+                        originalLine.split(
                                 "\\s+"
                         );
 
-
-                String current =
-                        "";
-
+                StringBuilder line =
+                        new StringBuilder();
 
                 for (String word : words) {
 
-                    String candidate =
-                            current.isEmpty()
-                                    ? word
-                                    : current
-                                    + " "
-                                    + word;
-
+                    String candidate;
 
                     if (
-                            paint.measureText(
-                                    candidate
-                            ) <= maxWidth
+                            line.length() == 0
                     ) {
 
-                        current =
-                                candidate;
+                        candidate =
+                                word;
 
                     } else {
 
-                        if (!current.isEmpty()) {
+                        candidate =
+                                line
+                                        .toString()
+                                        + " "
+                                        + word;
+                    }
 
-                            result.add(
-                                    current
+                    float width =
+                            textPaint.measureText(
+                                    candidate
                             );
-                        }
 
-                        current =
-                                word;
+                    if (
+                            width <= maxWidth
+                            || line.length() == 0
+                    ) {
+
+                        line.setLength(0);
+
+                        line.append(
+                                candidate
+                        );
+
+                    } else {
+
+                        result.add(
+                                line.toString()
+                        );
+
+                        line.setLength(0);
+
+                        line.append(
+                                word
+                        );
                     }
                 }
 
-
-                if (!current.isEmpty()) {
+                if (
+                        line.length() > 0
+                ) {
 
                     result.add(
-                            current
+                            line.toString()
                     );
                 }
             }
-
-
-            if (result.isEmpty()) {
-                result.add(text);
-            }
-
 
             return result;
         }
 
-
         // --------------------------------------------------------
-        // MAX LINE WIDTH
+        // COLOR PARSER
         // --------------------------------------------------------
 
-        private float getMaxLineWidth(
-                List<String> lines,
-                Paint paint
+        private static int parseColorSafe(
+                String value,
+                int fallback
         ) {
-
-            float max = 0f;
-
-
-            for (String line : lines) {
-
-                max =
-                        Math.max(
-                                max,
-                                paint.measureText(
-                                        line
-                                )
-                        );
-            }
-
-
-            return max;
-        }
-    }
-
-
-    // ============================================================
-    // TEXT PAINT
-    // ============================================================
-
-    private static class TextPaintEx
-            extends TextPaint {
-
-        TextPaintEx() {
-            super(Paint.ANTI_ALIAS_FLAG);
-        }
-    }
-
-
-    // ============================================================
-    // SRT CUE
-    // ============================================================
-
-    private static class SrtCue {
-
-        long startMs;
-        long endMs;
-        String text;
-
-
-        SrtCue(
-                long startMs,
-                long endMs,
-                String text
-        ) {
-
-            this.startMs =
-                    startMs;
-
-            this.endMs =
-                    endMs;
-
-            this.text =
-                    text;
-        }
-    }
-
-
-    // ============================================================
-    // SRT READER
-    // ============================================================
-
-    private String readSrtFile(
-            Uri uri
-    ) throws IOException {
-
-        ContentResolver resolver =
-                getContentResolver();
-
-
-        byte[] bytes;
-
-
-        try (
-                InputStream input =
-                        resolver.openInputStream(uri)
-        ) {
-
-            if (input == null) {
-
-                throw new IOException(
-                        "SRT file မဖွင့်နိုင်ပါ"
-                );
-            }
-
-
-            ByteArrayOutputStream output =
-                    new ByteArrayOutputStream();
-
-
-            byte[] buffer =
-                    new byte[8192];
-
-
-            int count;
-
-
-            while (
-                    (count =
-                            input.read(buffer))
-                            != -1
-            ) {
-
-                output.write(
-                        buffer,
-                        0,
-                        count
-                );
-            }
-
-
-            bytes =
-                    output.toByteArray();
-        }
-
-
-        if (bytes.length == 0) {
-            return "";
-        }
-
-
-        // --------------------------------------------------------
-        // UTF-8 BOM
-        // --------------------------------------------------------
-
-        if (
-                bytes.length >= 3
-                && (
-                        bytes[0] & 0xFF
-                ) == 0xEF
-                && (
-                        bytes[1] & 0xFF
-                ) == 0xBB
-                && (
-                        bytes[2] & 0xFF
-                ) == 0xBF
-        ) {
-
-            return new String(
-                    bytes,
-                    3,
-                    bytes.length - 3,
-                    Charset.forName("UTF-8")
-            );
-        }
-
-
-        // --------------------------------------------------------
-        // UTF-16 LE
-        // --------------------------------------------------------
-
-        if (
-                bytes.length >= 2
-                && (
-                        bytes[0] & 0xFF
-                ) == 0xFF
-                && (
-                        bytes[1] & 0xFF
-                ) == 0xFE
-        ) {
-
-            return new String(
-                    bytes,
-                    2,
-                    bytes.length - 2,
-                    Charset.forName("UTF-16LE")
-            );
-        }
-
-
-        // --------------------------------------------------------
-        // UTF-16 BE
-        // --------------------------------------------------------
-
-        if (
-                bytes.length >= 2
-                && (
-                        bytes[0] & 0xFF
-                ) == 0xFE
-                && (
-                        bytes[1] & 0xFF
-                ) == 0xFF
-        ) {
-
-            return new String(
-                    bytes,
-                    2,
-                    bytes.length - 2,
-                    Charset.forName("UTF-16BE")
-            );
-        }
-
-
-        // --------------------------------------------------------
-        // Detect UTF-16 without BOM
-        // --------------------------------------------------------
-
-        int zeroEven = 0;
-        int zeroOdd = 0;
-
-        int sample =
-                Math.min(
-                        bytes.length,
-                        2000
-                );
-
-
-        for (int i = 0; i < sample; i++) {
-
-            if (bytes[i] == 0) {
-
-                if (i % 2 == 0) {
-                    zeroEven++;
-                } else {
-                    zeroOdd++;
-                }
-            }
-        }
-
-
-        if (zeroOdd > 20 && zeroOdd > zeroEven * 2) {
-
-            return new String(
-                    bytes,
-                    Charset.forName("UTF-16LE")
-            );
-        }
-
-
-        if (zeroEven > 20 && zeroEven > zeroOdd * 2) {
-
-            return new String(
-                    bytes,
-                    Charset.forName("UTF-16BE")
-            );
-        }
-
-
-        // --------------------------------------------------------
-        // Default UTF-8
-        // --------------------------------------------------------
-
-        return new String(
-                bytes,
-                Charset.forName("UTF-8")
-        );
-    }
-
-
-    // ============================================================
-    // SRT PARSER
-    // ============================================================
-
-    private List<SrtCue> parseSrt(
-            String srt
-    ) {
-
-        List<SrtCue> result =
-                new ArrayList<>();
-
-
-        if (srt == null) {
-            return result;
-        }
-
-
-        srt =
-                srt.replace(
-                        "\uFEFF",
-                        ""
-                );
-
-
-        srt =
-                srt.replace(
-                        "\r\n",
-                        "\n"
-                )
-                .replace(
-                        "\r",
-                        "\n"
-                );
-
-
-        String[] blocks =
-                srt.split(
-                        "\\n\\s*\\n"
-                );
-
-
-        Pattern timestampPattern =
-                Pattern.compile(
-                        "(\\d{1,2}:\\d{2}:\\d{2}[,.]\\d{1,3})\\s*-->\\s*(\\d{1,2}:\\d{2}:\\d{2}[,.]\\d{1,3})"
-                );
-
-
-        for (String block : blocks) {
-
-            block =
-                    block.trim();
-
-
-            if (block.isEmpty()) {
-                continue;
-            }
-
-
-            String[] lines =
-                    block.split(
-                            "\\n"
-                    );
-
-
-            if (lines.length < 2) {
-                continue;
-            }
-
-
-            int timestampLine =
-                    -1;
-
-            Matcher matcher =
-                    null;
-
-
-            for (
-                    int i = 0;
-                    i < lines.length;
-                    i++
-            ) {
-
-                Matcher m =
-                        timestampPattern.matcher(
-                                lines[i]
-                        );
-
-
-                if (m.find()) {
-
-                    timestampLine =
-                            i;
-
-                    matcher =
-                            m;
-
-                    break;
-                }
-            }
-
 
             if (
-                    timestampLine < 0
-                    || matcher == null
-            ) {
-                continue;
-            }
-
-
-            long start =
-                    parseSrtTime(
-                            matcher.group(1)
-                    );
-
-
-            long end =
-                    parseSrtTime(
-                            matcher.group(2)
-                    );
-
-
-            StringBuilder text =
-                    new StringBuilder();
-
-
-            for (
-                    int i =
-                            timestampLine + 1;
-                    i < lines.length;
-                    i++
+                    value == null
+                    || value.trim().isEmpty()
             ) {
 
-                String line =
-                        lines[i].trim();
-
-
-                // Remove SRT positioning / styling tags
-                line =
-                        line.replaceAll(
-                                "<[^>]*>",
-                                ""
-                        );
-
-
-                if (!line.isEmpty()) {
-
-                    if (text.length() > 0) {
-                        text.append("\n");
-                    }
-
-                    text.append(line);
-                }
+                return fallback;
             }
-
-
-            if (
-                    end > start
-                    && text.length() > 0
-            ) {
-
-                result.add(
-                        new SrtCue(
-                                start,
-                                end,
-                                text.toString()
-                        )
-                );
-            }
-        }
-
-
-        return result;
-    }
-
-
-    // ============================================================
-    // PARSE SRT TIME
-    // ============================================================
-
-    private long parseSrtTime(
-            String time
-    ) {
-
-        try {
-
-            time =
-                    time.replace(
-                            ',',
-                            '.'
-                    );
-
-
-            String[] parts =
-                    time.split(
-                            ":"
-                    );
-
-
-            if (parts.length != 3) {
-                return 0;
-            }
-
-
-            long hours =
-                    Long.parseLong(
-                            parts[0]
-                    );
-
-
-            long minutes =
-                    Long.parseLong(
-                            parts[1]
-                    );
-
-
-            String[] sec =
-                    parts[2].split(
-                            "\\."
-                    );
-
-
-            long seconds =
-                    Long.parseLong(
-                            sec[0]
-                    );
-
-
-            long millis = 0;
-
-
-            if (sec.length > 1) {
-
-                String ms =
-                        sec[1];
-
-
-                if (ms.length() == 1) {
-                    ms += "00";
-                } else if (ms.length() == 2) {
-                    ms += "0";
-                } else if (ms.length() > 3) {
-                    ms =
-                            ms.substring(
-                                    0,
-                                    3
-                            );
-                }
-
-
-                millis =
-                        Long.parseLong(
-                                ms
-                        );
-            }
-
-
-            return
-                    hours * 3600000L
-                    +
-                    minutes * 60000L
-                    +
-                    seconds * 1000L
-                    +
-                    millis;
-
-        } catch (Exception e) {
-
-            return 0;
-        }
-    }
-
-
-    // ============================================================
-    // SAVE SRT OUTPUT
-    // ============================================================
-
-    private void saveSrtOutputToGallery(
-            File sourceFile,
-            String displayName
-    ) throws IOException {
-
-        if (
-                sourceFile == null
-                || !sourceFile.exists()
-        ) {
-
-            throw new IOException(
-                    "Output video မတွေ့ပါ"
-            );
-        }
-
-
-        // --------------------------------------------------------
-        // Android 10+
-        // --------------------------------------------------------
-
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-
-            ContentValues values =
-                    new ContentValues();
-
-
-            values.put(
-                    MediaStore.Video.Media.DISPLAY_NAME,
-                    displayName
-            );
-
-
-            values.put(
-                    MediaStore.Video.Media.MIME_TYPE,
-                    "video/mp4"
-            );
-
-
-            values.put(
-                    MediaStore.Video.Media.RELATIVE_PATH,
-                    Environment.DIRECTORY_MOVIES
-                            + "/Media Toolkit"
-            );
-
-
-            values.put(
-                    MediaStore.Video.Media.IS_PENDING,
-                    1
-            );
-
-
-            Uri collection =
-                    MediaStore.Video.Media.getContentUri(
-                            MediaStore.VOLUME_EXTERNAL_PRIMARY
-                    );
-
-
-            Uri outputUri =
-                    getContentResolver().insert(
-                            collection,
-                            values
-                    );
-
-
-            if (outputUri == null) {
-
-                throw new IOException(
-                        "Gallery file create မလုပ်နိုင်ပါ"
-                );
-            }
-
 
             try {
 
-                try (
-                        InputStream input =
-                                new FileInputStream(
-                                        sourceFile
-                                );
+                String color =
+                        value.trim();
 
-                        OutputStream output =
-                                getContentResolver()
-                                        .openOutputStream(
-                                                outputUri
-                                        )
+                if (
+                        !color.startsWith("#")
                 ) {
 
-                    if (output == null) {
-
-                        throw new IOException(
-                                "Output stream မဖွင့်နိုင်ပါ"
-                        );
-                    }
-
-
-                    copyStream(
-                            input,
-                            output
-                    );
+                    color =
+                            "#"
+                                    + color;
                 }
 
-
-                ContentValues done =
-                        new ContentValues();
-
-
-                done.put(
-                        MediaStore.Video.Media.IS_PENDING,
-                        0
+                return Color.parseColor(
+                        color
                 );
-
-
-                getContentResolver().update(
-                        outputUri,
-                        done,
-                        null,
-                        null
-                );
-
 
             } catch (Exception e) {
 
-                getContentResolver().delete(
-                        outputUri,
-                        null,
-                        null
-                );
-
-                throw e;
+                return fallback;
             }
-
-
-        } else {
-
-            // ----------------------------------------------------
-            // Android 9 and below
-            // ----------------------------------------------------
-
-            File movies =
-                    Environment.getExternalStoragePublicDirectory(
-                            Environment.DIRECTORY_MOVIES
-                    );
-
-
-            File folder =
-                    new File(
-                            movies,
-                            "Media Toolkit"
-                    );
-
-
-            if (!folder.exists()) {
-                folder.mkdirs();
-            }
-
-
-            File destination =
-                    new File(
-                            folder,
-                            displayName
-                    );
-
-
-            try (
-                    InputStream input =
-                            new FileInputStream(
-                                    sourceFile
-                            );
-
-                    OutputStream output =
-                            new FileOutputStream(
-                                    destination
-                            )
-            ) {
-
-                copyStream(
-                        input,
-                        output
-                );
-            }
-        }
-
-
-        // --------------------------------------------------------
-        // Delete temporary file
-        // --------------------------------------------------------
-
-        try {
-            sourceFile.delete();
-        } catch (Exception ignored) {
         }
     }
-
-
-    // ============================================================
-    // COPY STREAM
-    // ============================================================
-
-    private static void copyStream(
-            InputStream input,
-            OutputStream output
-    ) throws IOException {
-
-        byte[] buffer =
-                new byte[1024 * 64];
-
-
-        int length;
-
-
-        while (
-                (length =
-                        input.read(buffer))
-                        != -1
-        ) {
-
-            output.write(
-                    buffer,
-                    0,
-                    length
-            );
-        }
-
-
-        output.flush();
-    }
-
 
     // ============================================================
     // FILE NAME
@@ -2910,10 +2674,7 @@ public class MainActivity extends AppCompatActivity {
             return "Unknown";
         }
 
-
-        String result =
-                null;
-
+        String result = null;
 
         if (
                 "content".equals(
@@ -2921,9 +2682,7 @@ public class MainActivity extends AppCompatActivity {
                 )
         ) {
 
-            Cursor cursor =
-                    null;
-
+            Cursor cursor = null;
 
             try {
 
@@ -2939,7 +2698,6 @@ public class MainActivity extends AppCompatActivity {
                                         null
                                 );
 
-
                 if (
                         cursor != null
                         && cursor.moveToFirst()
@@ -2949,7 +2707,6 @@ public class MainActivity extends AppCompatActivity {
                             cursor.getColumnIndex(
                                     OpenableColumns.DISPLAY_NAME
                             );
-
 
                     if (index >= 0) {
 
@@ -2970,68 +2727,128 @@ public class MainActivity extends AppCompatActivity {
             }
         }
 
-
-        if (
-                result == null
-                || result.trim().isEmpty()
-        ) {
+        if (result == null) {
 
             result =
                     uri.getLastPathSegment();
         }
 
-
-        if (
-                result == null
-                || result.trim().isEmpty()
-        ) {
+        if (result == null) {
 
             result =
                     "Unknown";
         }
 
-
         return result;
     }
 
-
     // ============================================================
-    // SAFE COLOR
+    // PERSIST URI PERMISSION
     // ============================================================
 
-    private static String safeColor(
-            String color,
-            String fallback
+    private void takePersistablePermission(
+            Uri uri,
+            Intent data
     ) {
 
-        if (
-                color == null
-                || color.trim().isEmpty()
-        ) {
-            return fallback;
+        if (uri == null) {
+            return;
         }
-
 
         try {
 
-            Color.parseColor(
-                    color
-            );
+            int flags =
+                    data.getFlags()
+                            & (
+                            Intent.FLAG_GRANT_READ_URI_PERMISSION
+                                    | Intent.FLAG_GRANT_WRITE_URI_PERMISSION
+                    );
 
-            return color;
+            getContentResolver()
+                    .takePersistableUriPermission(
+                            uri,
+                            flags
+                    );
 
-        } catch (Exception e) {
-
-            return fallback;
+        } catch (Exception ignored) {
         }
     }
 
+    // ============================================================
+    // JAVASCRIPT CALL
+    // ============================================================
+
+    private void callJs(
+            String function,
+            String... args
+    ) {
+
+        if (webView == null) {
+            return;
+        }
+
+        StringBuilder script =
+                new StringBuilder();
+
+        script.append(
+                "javascript:(function(){"
+        );
+
+        script.append(
+                "if(typeof "
+        );
+
+        script.append(
+                function
+        );
+
+        script.append(
+                "==='function'){"
+        );
+
+        script.append(
+                function
+        );
+
+        script.append("("
+        );
+
+        for (
+                int i = 0;
+                i < args.length;
+                i++
+        ) {
+
+            if (i > 0) {
+                script.append(",");
+            }
+
+            script.append(
+                    args[i]
+            );
+        }
+
+        script.append(
+                ");}"
+        );
+
+        script.append(
+                "})()"
+        );
+
+        runOnUiThread(() ->
+                webView.evaluateJavascript(
+                        script.toString(),
+                        null
+                )
+        );
+    }
 
     // ============================================================
-    // JS ESCAPE
+    // JS STRING ESCAPE
     // ============================================================
 
-    private static String jsQuote(
+    private String jsString(
             String value
     ) {
 
@@ -3039,96 +2856,51 @@ public class MainActivity extends AppCompatActivity {
             value = "";
         }
 
-
-        return "'"
-                + value
-                .replace(
-                        "\\",
-                        "\\\\"
-                )
-                .replace(
-                        "'",
-                        "\\'"
-                )
-                .replace(
-                        "\r",
-                        "\\r"
-                )
-                .replace(
-                        "\n",
-                        "\\n"
-                )
-                .replace(
-                        "</",
-                        "<\\/"
-                )
-                + "'";
-    }
-
-
-    // ============================================================
-    // SEND JS
-    // ============================================================
-
-    private void sendJs(
-            String javascript
-    ) {
-
-        if (webView == null) {
-            return;
-        }
-
-
-        runOnUiThread(
-                () -> {
-
-                    try {
-
-                        webView.evaluateJavascript(
-                                javascript,
-                                null
+        String escaped =
+                value
+                        .replace(
+                                "\\",
+                                "\\\\"
+                        )
+                        .replace(
+                                "'",
+                                "\\'"
+                        )
+                        .replace(
+                                "\r",
+                                "\\r"
+                        )
+                        .replace(
+                                "\n",
+                                "\\n"
+                        )
+                        .replace(
+                                "</",
+                                "<\\/"
                         );
 
-                    } catch (Exception ignored) {
-                    }
-                }
+        return "'" + escaped + "'";
+    }
+
+    // ============================================================
+    // TOAST
+    // ============================================================
+
+    private void showToast(
+            String message
+    ) {
+
+        runOnUiThread(() ->
+                Toast.makeText(
+                        MainActivity.this,
+                        message,
+                        Toast.LENGTH_SHORT
+                ).show()
         );
     }
 
-
     // ============================================================
-    // ERROR MESSAGE
-    // ============================================================
-
-    private String getErrorMessage(
-            Throwable throwable
-    ) {
-
-        if (throwable == null) {
-            return "Unknown error";
-        }
-
-
-        String message =
-                throwable.getMessage();
-
-
-        if (
-                message == null
-                || message.trim().isEmpty()
-        ) {
-
-            message =
-                    throwable.toString();
-        }
-
-
-        return message;
-    }
-
-
-    // ============================================================
-    // ON DESTROY
+    // ACTIVITY DESTROY
     // ============================================================
 
     @Override
@@ -3136,32 +2908,52 @@ public class MainActivity extends AppCompatActivity {
 
         try {
 
-            mainHandler.removeCallbacks(
-                    compressionProgressRunnable
-            );
-
-            mainHandler.removeCallbacks(
-                    srtProgressRunnable
-            );
-
-        } catch (Exception ignored) {
-        }
-
-
-        try {
-
-            if (webView != null) {
-
-                webView.stopLoading();
-
-                webView.destroy();
-
-                webView = null;
+            if (compressionTransformer != null) {
+                compressionTransformer.cancel();
             }
 
         } catch (Exception ignored) {
         }
 
+        try {
+
+            if (srtTransformer != null) {
+                srtTransformer.cancel();
+            }
+
+        } catch (Exception ignored) {
+        }
+
+        try {
+
+            if (compressionProgressThread != null) {
+                compressionProgressThread.interrupt();
+            }
+
+        } catch (Exception ignored) {
+        }
+
+        try {
+
+            if (srtProgressThread != null) {
+                srtProgressThread.interrupt();
+            }
+
+        } catch (Exception ignored) {
+        }
+
+        if (webView != null) {
+
+            webView.stopLoading();
+
+            webView.removeJavascriptInterface(
+                    "AndroidBridge"
+            );
+
+            webView.destroy();
+
+            webView = null;
+        }
 
         super.onDestroy();
     }
